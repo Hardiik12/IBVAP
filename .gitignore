@@ -1,0 +1,60 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+
+# Node.js & Frontend
+node_modules/
+.next/
+out/
+build/
+dist/
+.npm
+.yarn/
+
+# Environments & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Evidence & Media (preserve placeholder gitkeeps)
+data/evidence/*
+!data/evidence/.gitkeep
+data/videos/live-demo/*
+!data/videos/live-demo/.gitkeep
+data/videos/test/*
+!data/videos/test/.gitkeep
+data/videos/benchmark/*
+!data/videos/benchmark/.gitkeep
+data/images/*
+!data/images/.gitkeep
+
+# Model weights
+ai/models/*.pt
+ai/models/*.onnx
+ai/models/*.engine
+!ai/models/.gitkeep
+
+# IDEs & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Logs & Temp
+*.log
+logs/
+*.tmp
+tmp/

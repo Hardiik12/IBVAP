@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Development PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ibvap_postgres
+    environment:
+      POSTGRES_DB: ibvap
+      POSTGRES_USER: ibvap
+      POSTGRES_PASSWORD: ibvap
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Planned Microservices (To be enabled in future phases)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: ../integration/docker/backend/Dockerfile
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - postgres
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: ../integration/docker/frontend/Dockerfile
+  #   ports:
+  #     - "3000:3000"
+
+volumes:
+  postgres_data:
