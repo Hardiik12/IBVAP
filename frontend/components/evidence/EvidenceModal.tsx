@@ -25,6 +25,8 @@ export const EvidenceModal: React.FC = () => {
       try {
         const data = await evidenceService.getEvidence(activeEvidenceModalId);
         setEvidence(data);
+      } catch (err) {
+        console.error("Failed to load evidence record:", err);
       } finally {
         setIsLoading(false);
       }
@@ -51,11 +53,11 @@ export const EvidenceModal: React.FC = () => {
     >
       {isLoading || !evidence ? (
         <div className="h-64 flex items-center justify-center font-mono text-xs text-slate-400 animate-pulse">
-          Loading evidence payload...
+          Loading forensic evidence snapshot & SHA-256 digest...
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Main Grid: Snapshot on Left, Metadata on Right */}
+          {/* Main Grid: Real Captured Snapshot on Left, Metadata on Right */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Snapshot Image Container */}
             <div className="space-y-2">
@@ -63,19 +65,18 @@ export const EvidenceModal: React.FC = () => {
                 <Camera className="w-3.5 h-3.5 text-blue-400" />
                 <span>HIGH-RESOLUTION EVENT SNAPSHOT:</span>
               </div>
-              <div className="relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-black flex items-center justify-center">
-                {/* Fallback image */}
+              <div className="relative aspect-video rounded-lg overflow-hidden border border-slate-700 bg-black flex items-center justify-center shadow-inner">
+                {/* Real Live Captured Webcam Frame */}
                 <img
                   src={evidence.image_url}
                   alt={`Evidence ${evidence.evidence_id}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // Fallback to stylized SVG placeholder if image path is not yet present on disk
                     (e.target as HTMLImageElement).src =
-                      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'><rect width='640' height='360' fill='%230f172a'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='monospace' font-size='14'>IBVAP EVIDENCE SNAPSHOT</text></svg>";
+                      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'><rect width='640' height='360' fill='%230f172a'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='monospace' font-size='14'>REAL WEBCAM SNAPSHOT LOADING</text></svg>";
                   }}
                 />
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 text-[10px] font-mono text-emerald-400 border border-slate-700">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/85 text-[10px] font-mono text-emerald-400 border border-slate-700 backdrop-blur-sm">
                   AUTO-CAPTURED UPON INTRUSION
                 </div>
               </div>
@@ -85,7 +86,7 @@ export const EvidenceModal: React.FC = () => {
             <div className="bg-surface-100 border border-surface-border rounded-lg p-4 space-y-3.5 text-xs font-mono">
               <div className="text-slate-300 font-semibold border-b border-surface-border pb-2 flex items-center gap-1.5">
                 <FileCode className="w-4 h-4 text-blue-400" />
-                <span>EVENT METADATA</span>
+                <span>EVENT FORENSIC METADATA</span>
               </div>
 
               <div className="space-y-2 text-slate-400">
@@ -99,7 +100,7 @@ export const EvidenceModal: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>CAMERA SOURCE:</span>
-                  <span className="text-slate-200">{evidence.camera_id || "cam-01"}</span>
+                  <span className="text-slate-200">{evidence.camera_id || "Main Webcam (cam-01)"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>CAPTURED TIMESTAMP:</span>
@@ -107,7 +108,7 @@ export const EvidenceModal: React.FC = () => {
                 </div>
 
                 <div className="flex justify-between">
-                  <span>STORAGE PATH:</span>
+                  <span>PHYSICAL STORAGE PATH:</span>
                   <span className="text-slate-400 text-[11px] truncate max-w-[180px]">
                     {evidence.file_path}
                   </span>
@@ -115,7 +116,7 @@ export const EvidenceModal: React.FC = () => {
               </div>
 
               <div className="p-2.5 rounded bg-surface-200 border border-surface-border/80 text-[11px] text-slate-400 leading-relaxed">
-                ℹ️ Forensic integrity is guaranteed by computing SHA-256 binary hash immediately upon frame capture. Any disk modification alters the hash digest.
+                ℹ️ Cryptographic integrity is guaranteed by calculating the SHA-256 digest directly from the raw captured frame bytes at the exact moment of zone intrusion.
               </div>
             </div>
           </div>

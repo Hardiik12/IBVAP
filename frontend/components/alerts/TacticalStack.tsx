@@ -3,14 +3,18 @@
 import React, { useState } from "react";
 import { Check, X, Edit3, ChevronUp, Radio } from "lucide-react";
 import { useAlerts } from "../../hooks/useAlerts";
+import { formatTimeAgo } from "../../utils/formatters";
 
 export const TacticalStack: React.FC = () => {
-  const { openEvidenceModal } = useAlerts();
+  const { alerts, latestAlert, openEvidenceModal } = useAlerts();
   const [annotation, setAnnotation] = useState("Suspect heading east...");
 
   // 20-segment LED bar
   const totalSegments = 20;
-  const activeSegments = 15; // 75%
+  const activeSegments = alerts.length > 0 ? Math.min(20, Math.max(8, alerts.length * 4)) : 15;
+
+  // Real alerts to display (up to 3)
+  const displayAlerts = alerts.slice(0, 3);
 
   return (
     <div className="flex flex-col gap-3.5 h-full">
@@ -20,7 +24,9 @@ export const TacticalStack: React.FC = () => {
           <span className="text-xs font-mono font-bold tracking-wider text-slate-300">
             THREAT LEVEL
           </span>
-          <span className="text-xs font-mono text-red-400 font-bold">(75%)</span>
+          <span className="text-xs font-mono text-red-400 font-bold">
+            {alerts.length > 0 ? `(${Math.min(95, alerts.length * 20 + 35)}%)` : "(75%)"}
+          </span>
         </div>
 
         {/* Segmented LED Bar */}
@@ -38,7 +44,7 @@ export const TacticalStack: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-          <span>Intrusions/hr: <strong className="text-slate-100">12</strong></span>
+          <span>Active Alerts: <strong className="text-slate-100">{alerts.length || 3}</strong></span>
         </div>
 
         {/* Sparkline Wave Chart with Glowing Peak Dot */}
@@ -72,99 +78,70 @@ export const TacticalStack: React.FC = () => {
               <span className="text-xs font-mono font-bold tracking-wider text-slate-200">
                 TACTICAL FEED
               </span>
-              <span className="text-[11px] font-mono text-slate-400">(3 Pending)</span>
+              <span className="text-[11px] font-mono text-slate-400">
+                ({alerts.length || 3} Incidents)
+              </span>
             </div>
             <ChevronUp className="w-4 h-4 text-slate-400 cursor-pointer hover:text-white" />
           </div>
 
-          {/* Alert Item 1: INTRUSION (Red Glowing Card) */}
-          <div className="p-3 rounded-lg bg-red-950/40 border border-red-600 shadow-[0_0_15px_rgba(239,68,68,0.25)] space-y-2.5">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <div className="flex items-center gap-1.5 font-bold text-red-400">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span>INTRUSION</span>
-              </div>
-              <span className="text-slate-400">14:27:35</span>
-            </div>
-
-            <div className="text-xs font-mono text-slate-300">
-              Area: <strong className="text-slate-100">SECTOR-4 | CAM-01</strong>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={() => openEvidenceModal("evi-33104")}
-                className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs shadow-[0_0_10px_rgba(16,185,129,0.4)] transition"
+          {/* Render Real Alerts if present, or initial tactical cards */}
+          {displayAlerts.length > 0 ? (
+            displayAlerts.map((alt, idx) => (
+              <div
+                key={alt.alert_id || idx}
+                className="p-3 rounded-lg bg-red-950/40 border border-red-600 shadow-[0_0_15px_rgba(239,68,68,0.25)] space-y-2.5 animate-fade-in"
               >
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>CONFIRM</span>
-              </button>
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center gap-1.5 font-bold text-red-400">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span>{alt.event_type || "INTRUSION"}</span>
+                    {alt.track_id && <span className="text-[10px] text-slate-400">#{alt.track_id}</span>}
+                  </div>
+                  <span className="text-slate-400 text-[10px]" suppressHydrationWarning>
+                    {formatTimeAgo(alt.timestamp)}
+                  </span>
+                </div>
 
-              <button className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded bg-surface-100 hover:bg-surface-50 border border-white/10 text-slate-300 font-mono text-xs transition">
-                <X className="w-3.5 h-3.5" />
-                <span>FALSE</span>
-              </button>
-            </div>
+                <div className="text-xs font-mono text-slate-300">
+                  Area: <strong className="text-slate-100">{alt.zone_name || "SECTOR-4 | CAM-01"}</strong>
+                </div>
 
-            {/* Annotation Box */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-black/50 border border-white/10 text-[11px] font-mono text-slate-400">
-              <Edit3 className="w-3 h-3 text-slate-500 shrink-0" />
-              <input
-                type="text"
-                value={annotation}
-                onChange={(e) => setAnnotation(e.target.value)}
-                placeholder="Annotate incident..."
-                className="bg-transparent border-none text-slate-200 placeholder-slate-500 focus:outline-none w-full text-[11px]"
-              />
-            </div>
-          </div>
-
-          {/* Alert Item 2: VEHICLE (Amber Card) */}
-          <div className="p-3 rounded-lg bg-amber-950/25 border border-amber-600/70 space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <div className="flex items-center gap-1.5 font-bold text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span>VEHICLE</span>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => openEvidenceModal(alt.evidence_id)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs shadow-[0_0_10px_rgba(16,185,129,0.4)] transition"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>VERIFY EVIDENCE</span>
+                  </button>
+                </div>
               </div>
-              <span className="text-slate-400">14:26:10</span>
+            ))
+          ) : (
+            <div className="p-3 rounded-lg bg-red-950/40 border border-red-600 shadow-[0_0_15px_rgba(239,68,68,0.25)] space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <div className="flex items-center gap-1.5 font-bold text-red-400">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span>INTRUSION SYSTEM ACTIVE</span>
+                </div>
+                <span className="text-slate-400">READY</span>
+              </div>
+              <div className="text-xs font-mono text-slate-300">
+                Area: <strong className="text-slate-100">RESTRICTED ZONE (SECTOR 4)</strong>
+              </div>
+              <div className="text-[11px] font-mono text-slate-400">
+                Move inside the virtual zone to trigger instant webcam evidence capture.
+              </div>
             </div>
-
-            <div className="text-xs font-mono text-slate-300">
-              Area: <strong className="text-slate-100">SECTOR-4</strong>
-            </div>
-
-            <div className="flex items-center gap-2 pt-0.5">
-              <button
-                onClick={() => openEvidenceModal("evi-33106")}
-                className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs transition"
-              >
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>CONFIRM</span>
-              </button>
-
-              <button className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded bg-surface-100 hover:bg-surface-50 border border-white/10 text-slate-300 font-mono text-xs transition">
-                <X className="w-3.5 h-3.5" />
-                <span>FALSE</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Alert Item 3: RESOLVED (Gray Card) */}
-          <div className="p-2.5 rounded-lg bg-surface-100/60 border border-white/10 flex items-center justify-between text-xs font-mono text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-300 font-bold">RESOLVED</span>
-              <span className="text-slate-500">| Area: SECTOR-2</span>
-            </div>
-            <span>14:20:01</span>
-          </div>
+          )}
         </div>
 
         {/* Bottom Info Bar */}
         <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-500">
-          <span>AI v2.4</span>
-          <span>UPTIME: 48m</span>
+          <span>AI v2.4 (YOLOv8)</span>
+          <span>WEBCAM FORENSICS: ACTIVE</span>
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ import { useWebcam } from "../../hooks/useWebcam";
 import { useAIDetection } from "../../hooks/useAIDetection";
 import { useCameraContext } from "../../context/CameraContext";
 import { useAlerts } from "../../hooks/useAlerts";
-import { Maximize2, Video, VideoOff, Cpu, Scan } from "lucide-react";
+import { Maximize2, Video, VideoOff, Cpu } from "lucide-react";
 
 export const LiveVideoPlayer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -23,20 +23,20 @@ export const LiveVideoPlayer: React.FC = () => {
     facingMode: "user",
   });
 
-  // 2. Real-time Python YOLOv8 Detector & Tracker integration
-  const { detections, inferenceMs, aiFps } = useAIDetection({
+  // 2. Real-time Python YOLOv8 Detector & Tracker + Automatic Evidence Capture on Breach
+  const { detections, inferenceMs } = useAIDetection({
     videoRef: webcam.videoRef,
     isEnabled: webcam.status === "active",
     zones,
     cameraId: selectedCamera?.id || "cam-01",
     confidenceThreshold: 0.3,
-    intervalMs: 140, // ~7 FPS continuous AI vision stream
-    onIntrusion: (item) => {
-      // Dispatch real intrusion event to alert system
+    intervalMs: 130, // ~7-8 FPS continuous AI vision stream
+    onIntrusion: (item, evidenceRecord) => {
+      // Dispatch real intrusion event to alert system with the REAL captured evidence ID
       addAlert({
         type: "NEW_ALERT",
         alert_id: `alt-${Math.floor(Math.random() * 90000) + 10000}`,
-        event_id: `evt-${Math.floor(Math.random() * 90000) + 10000}`,
+        event_id: evidenceRecord.event_id,
         event_type: "INTRUSION",
         camera_id: selectedCamera?.id || "cam-01",
         camera_name: selectedCamera?.name || "MacBook Webcam",
@@ -45,8 +45,8 @@ export const LiveVideoPlayer: React.FC = () => {
         class_name: item.class_name,
         confidence: item.confidence,
         severity: "CRITICAL",
-        timestamp: new Date().toISOString(),
-        evidence_id: `evi-${Math.floor(Math.random() * 90000) + 10000}`,
+        timestamp: evidenceRecord.captured_at,
+        evidence_id: evidenceRecord.evidence_id,
         bbox: item.bbox,
       });
     },

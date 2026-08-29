@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AIDetectionItem } from "../types/detection";
 import { Zone } from "../types/zone";
+import { EvidenceRecord } from "../types/evidence";
 import { aiDetectionService } from "../services/aiDetectionService";
+import { evidenceService } from "../services/evidenceService";
 
 interface UseAIDetectionOptions {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -12,7 +14,7 @@ interface UseAIDetectionOptions {
   cameraId?: string;
   confidenceThreshold?: number;
   intervalMs?: number;
-  onIntrusion?: (item: AIDetectionItem) => void;
+  onIntrusion?: (item: AIDetectionItem, evidence: EvidenceRecord) => void;
 }
 
 export function useAIDetection(options: UseAIDetectionOptions) {
@@ -22,7 +24,7 @@ export function useAIDetection(options: UseAIDetectionOptions) {
     zones = [],
     cameraId = "cam-01",
     confidenceThreshold = 0.3,
-    intervalMs = 120, // ~8 FPS inference rate
+    intervalMs = 130, // ~7-8 FPS continuous inference stream
     onIntrusion,
   } = options;
 
@@ -33,12 +35,13 @@ export function useAIDetection(options: UseAIDetectionOptions) {
 
   const isBusyRef = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const highResCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const prevInsideTracksRef = useRef<Set<number>>(new Set());
   const frameCountRef = useRef<number>(0);
   const lastFpsCalcRef = useRef<number>(Date.now());
 
-  // Capture video frame into base64 JPEG
-  const grabFrameBase64 = useCallback((): string | null => {
+  // Capture lightweight frame (640px) for fast inference transfer
+  const grabInferenceFrame = useCallback((): string | null => {
     const video = videoRef.current;
     if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
       return null;
@@ -49,7 +52,6 @@ export function useAIDetection(options: UseAIDetectionOptions) {
     }
 
     const canvas = canvasRef.current;
-    // Scale down to 640px width for low latency inference transfer
     const targetWidth = Math.min(640, video.videoWidth);
     const scale = targetWidth / video.videoWidth;
     const targetHeight = Math.round(video.videoHeight * scale);
@@ -64,11 +66,33 @@ export function useAIDetection(options: UseAIDetectionOptions) {
     return canvas.toDataURL("image/jpeg", 0.7);
   }, [videoRef]);
 
+  // Capture full-resolution raw snapshot for forensic evidence storage & SHA-256 hashing
+  const grabHighResEvidenceFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      return null;
+    }
+
+    if (!highResCanvasRef.current) {
+      highResCanvasRef.current = document.createElement("canvas");
+    }
+
+    const canvas = highResCanvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.9);
+  }, [videoRef]);
+
   // Main inference step
   const processFrame = useCallback(async () => {
     if (!isEnabled || isBusyRef.current) return;
 
-    const b64Image = grabFrameBase64();
+    const b64Image = grabInferenceFrame();
     if (!b64Image) return;
 
     isBusyRef.current = true;
@@ -85,7 +109,7 @@ export function useAIDetection(options: UseAIDetectionOptions) {
       setDetections(response.detections);
       setInferenceMs(response.inference_ms);
 
-      // Track FPS
+      // Compute FPS
       frameCountRef.current += 1;
       const now = Date.now();
       const elapsed = (now - lastFpsCalcRef.current) / 1000;
@@ -95,29 +119,52 @@ export function useAIDetection(options: UseAIDetectionOptions) {
         lastFpsCalcRef.current = now;
       }
 
-      // Check for new intrusion transitions
+      // Check for POSITIVE transition: OUTSIDE -> INSIDE
       const currentInside = new Set<number>();
       for (const item of response.detections) {
         if (item.is_inside_zone) {
           currentInside.add(item.track_id);
-          // If newly entered zone, fire intrusion alert
+
+          // If subject just breached the zone edge:
           if (!prevInsideTracksRef.current.has(item.track_id)) {
-            if (onIntrusion) {
-              onIntrusion(item);
+            // 1. Immediately capture the current raw webcam frame at this exact moment
+            const evidenceSnapshot = grabHighResEvidenceFrame();
+            if (evidenceSnapshot) {
+              try {
+                // 2. Ingest real evidence snapshot to backend and compute real SHA-256 hash
+                const evidenceRecord = await evidenceService.captureRealEvidence({
+                  image: evidenceSnapshot,
+                  camera_id: cameraId,
+                  zone_id: item.zone_id,
+                  zone_name: item.zone_name,
+                  track_id: item.track_id,
+                  class_name: item.class_name,
+                  confidence: item.confidence,
+                  bbox: item.bbox,
+                  timestamp: new Date().toISOString(),
+                });
+
+                // 3. Dispatch real intrusion alert with real evidence_id
+                if (onIntrusion) {
+                  onIntrusion(item, evidenceRecord);
+                }
+              } catch (err) {
+                console.error("Failed to persist real intrusion evidence:", err);
+              }
             }
           }
         }
       }
       prevInsideTracksRef.current = currentInside;
     } catch {
-      // Network or inference skip
+      // Skip dropped frame
     } finally {
       isBusyRef.current = false;
       setIsInferring(false);
     }
-  }, [isEnabled, grabFrameBase64, cameraId, confidenceThreshold, zones, onIntrusion]);
+  }, [isEnabled, grabInferenceFrame, grabHighResEvidenceFrame, cameraId, confidenceThreshold, zones, onIntrusion]);
 
-  // Inference interval loop
+  // Inference loop
   useEffect(() => {
     if (!isEnabled) {
       setDetections([]);
