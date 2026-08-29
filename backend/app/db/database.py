@@ -4,10 +4,13 @@ from sqlalchemy.orm import sessionmaker, Session
 from app.core.config import settings
 from app.core.logging import logger
 
-# Create SQLAlchemy engine lazily
+connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+
+# Create SQLAlchemy engine
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
+    connect_args=connect_args,
+    pool_pre_ping=True if not settings.DATABASE_URL.startswith("sqlite") else False,
     echo=(settings.APP_ENV == "development" and settings.DEBUG)
 )
 

@@ -111,6 +111,7 @@ def generate_evidence_hash(
 
 
 @router.get("/evidence/{evidence_id}/verify", response_model=EvidenceVerificationResponse)
+@router.post("/evidence/{evidence_id}/verify", response_model=EvidenceVerificationResponse)
 def verify_evidence(
     evidence_id: str,
     db: Session = Depends(get_db),
@@ -138,3 +139,4 @@ def verify_evidence(
         stored_hash=result.get("stored_hash"),
         current_hash=result.get("current_hash")
     )
+

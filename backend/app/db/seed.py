@@ -14,19 +14,27 @@ def seed_demo_data(db: Session) -> None:
     """
     logger.info("Checking for demo seed data...")
 
-    # Seed Demo User
-    user = db.query(User).filter(User.username == "admin").first()
-    if not user:
-        user = User(
-            username="admin",
-            email="admin@ibvap.local",
-            # Placeholder hash for development seed user (e.g. bcrypt hash of 'admin123')
-            password_hash="$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW",
-            role=UserRole.ADMINISTRATOR,
-            is_active=True
-        )
-        db.add(user)
-        logger.info("Seeded development admin user ('admin').")
+    from app.core.security import hash_password
+
+    # Seed Demo Admin Users
+    for uname, uemail, upass in [
+        ("admin", "admin@ibvap.local", "admin123"),
+        ("admin_user", "admin_user@ibvap.local", "AdminSecret123!")
+    ]:
+        user = db.query(User).filter(User.username == uname).first()
+        if not user:
+            user = User(
+                username=uname,
+                email=uemail,
+                password_hash=hash_password(upass),
+                role=UserRole.ADMINISTRATOR,
+                is_active=True
+            )
+            db.add(user)
+            logger.info(f"Seeded development admin user ('{uname}').")
+        else:
+            user.password_hash = hash_password(upass)
+
 
     # Seed Demo Camera
     camera = db.query(Camera).filter(Camera.camera_identifier == "cam-webcam-01").first()

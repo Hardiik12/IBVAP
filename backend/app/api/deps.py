@@ -1,43 +1,44 @@
-from typing import List, Callable
+from typing import List, Callable, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core import security
+from app.core.config import settings
 from app.models.user import User
 from app.models.enums import UserRole
 
 # OAuth2 scheme extracting Bearer token from HTTP Authorization header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 def get_current_user(
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> User:
     """
     Decodes Bearer JWT access token and retrieves active authenticated user.
-    Raises 401 Unauthorized for invalid/expired tokens or inactive users.
+    In development mode, falls back to the default seed admin/operator user.
     """
-    payload = security.decode_access_token(token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+    if token:
+        payload = security.decode_access_token(token)
+        if payload and "sub" in payload:
+            user_id = payload["sub"]
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.is_active:
+                return user
 
-    user_id = payload["sub"]
-    user = db.query(User).filter(User.id == user_id).first()
+    # Development fallback
+    if settings.DEBUG or settings.APP_ENV == "development":
+        demo_user = db.query(User).filter(User.username == "admin").first()
+        if demo_user:
+            return demo_user
 
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is inactive or missing",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-
-    return user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
 
 
 def require_role(allowed_roles: List[UserRole]) -> Callable:

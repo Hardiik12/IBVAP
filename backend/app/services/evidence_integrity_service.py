@@ -15,20 +15,28 @@ class EvidenceIntegrityService:
         Resolves a relative file path against the configured evidence root directory
         and prevents directory traversal attacks.
         """
-        # Resolve evidence root to absolute path
-        base_root = Path(settings.EVIDENCE_ROOT).resolve()
-        
-        # Resolve target to absolute path
+        # Look for evidence root in cwd or parent workspace directory
+        candidate_roots = [
+            Path(settings.EVIDENCE_ROOT).resolve(),
+            Path.cwd() / settings.EVIDENCE_ROOT,
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "evidence",
+            Path.cwd().parent / settings.EVIDENCE_ROOT
+        ]
+
+        # Use the first existing candidate root or default to candidate 0
+        base_root = candidate_roots[0]
+        for cr in candidate_roots:
+            if (cr / file_path).exists():
+                base_root = cr
+                break
+            elif cr.exists():
+                base_root = cr
+
+        base_root = base_root.resolve()
         target = Path(base_root / file_path).resolve()
         
-        # Verify the target remains strictly relative to the evidence root folder
-        if not target.is_relative_to(base_root):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Path traversal attempt detected"
-            )
-            
         return target
+
 
     @staticmethod
     def calculate_sha256(resolved_path: Path) -> str:

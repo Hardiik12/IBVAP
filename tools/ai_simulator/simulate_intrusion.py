@@ -68,9 +68,11 @@ async def run_simulation():
         data={
             "name": "Simulated Perimeter Camera 01",
             "camera_identifier": cam_identifier,
-            "source_type": "FILE",
+            "source_type": "VIDEO_FILE",
+            "source_url": "data/videos/live-demo/test.mp4",
             "location": "North Border Sector 4",
             "is_active": True
+
         },
         headers=auth_header
     )
