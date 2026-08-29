@@ -41,35 +41,35 @@ Phase 11: Presentation & Demo Polish ────────────► Tar
 
 ### Phase 1 — Camera Source Ingestion (`ai/camera`)
 - **Owner**: M3 (Video/Edge Lead)
-- [ ] Implement `CameraSource` abstract base class.
-- [ ] Implement `WebcamSource` (USB / Laptop built-in webcam via OpenCV `cv2.VideoCapture`).
-- [ ] Implement `VideoFileSource` (Recorded test video fallback).
+- [x] Implement `CameraSource` abstract base class.
+- [x] Implement `WebcamSource` (USB / Laptop built-in webcam via OpenCV `cv2.VideoCapture`).
+- [x] Implement `VideoFileSource` (Recorded test video fallback).
 - **Acceptance Criteria**: Script reads video stream smoothly and displays live RGB frames without memory leaks.
 
 ### Phase 2 — Object Detection (`ai/detection`)
 - **Owner**: M2 (AI/ML Lead)
-- [ ] Wrap Ultralytics YOLOv8 detector (`yolov8n.pt`).
-- [ ] Implement detection filtering for target classes (`person`, `vehicle`).
-- [ ] Normalize raw YOLO output to `NormalizedDetection` dict format.
+- [x] Wrap Ultralytics YOLOv8 detector (`yolov8n.pt`).
+- [x] Implement detection filtering for target classes (`person`, `vehicle`).
+- [x] Normalize raw YOLO output to `NormalizedDetection` dict format.
 - **Acceptance Criteria**: Detector processes frames and outputs normalized bounding boxes and confidence scores.
 
 ### Phase 3 — Multi-Object Tracking (`ai/tracking`)
 - **Owner**: M2 (AI/ML Lead)
-- [ ] Integrate ByteTrack algorithm.
-- [ ] Bind normalized detections to persistent `track_id` assignments.
+- [x] Integrate ByteTrack algorithm.
+- [x] Bind normalized detections to persistent `track_id` assignments.
 - **Acceptance Criteria**: Track ID remains continuous across successive frames for a subject moving in scene.
 
 ### Phase 4 — Virtual Polygon Zone Engine (`ai/zones`)
 - **Owner**: M2 (AI/ML Lead)
-- [ ] Implement spatial point math for bounding box (bottom-center coordinate).
-- [ ] Implement Shapely point-in-polygon containment test against polygon coordinates.
+- [x] Implement spatial point math for bounding box (bottom-center coordinate).
+- [x] Implement Shapely point-in-polygon containment test against polygon coordinates.
 - **Acceptance Criteria**: Engine correctly classifies point as `INSIDE` or `OUTSIDE` polygon zone.
 
 ### Phase 5 — Intrusion Event Engine (`ai/events`)
 - **Owner**: M2 (AI/ML Lead)
-- [ ] Implement track state transition machine (`OUTSIDE` → `INSIDE`).
-- [ ] Emit `INTRUSION` event payload upon positive transition.
-- [ ] Apply hysteresis/cooldown to suppress duplicate alert spam while subject stays `INSIDE`.
+- [x] Implement track state transition machine (`OUTSIDE` → `INSIDE`).
+- [x] Emit `INTRUSION` event payload upon positive transition.
+- [x] Apply hysteresis/cooldown to suppress duplicate alert spam while subject stays `INSIDE`.
 - **Acceptance Criteria**: Entering polygon generates exactly 1 intrusion event; remaining inside generates 0 extra events.
 
 ### Phase 6 — Alert System & Backend Service (`backend/app`)
