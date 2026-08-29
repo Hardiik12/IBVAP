@@ -21,10 +21,9 @@
 ### 2.1 AI Engine Runtimes
 - **Python Version**: Python 3.11.x
 - **Core Python Libraries**:
-  - `opencv-python>=4.9.0` (Video capture, frame manipulation, annotations)
-  - `ultralytics>=8.1.0` (YOLOv8 object detection)
+  - `opencv-python>=4.9.0` (Video capture, frame manipulation, pointPolygonTest PIP)
+  - `ultralytics>=8.1.0` (YOLOv8 object detection & ByteTrack)
   - `numpy>=1.26.0` (Array operations, bounding box math)
-  - `shapely>=2.0.0` (Polygon representation and point-in-polygon spatial testing)
   - `scipy>=1.12.0` & `lap>=0.4.0` (ByteTrack linear assignment algorithm)
 
 ### 2.2 Backend Service Runtimes

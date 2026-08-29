@@ -78,7 +78,7 @@ The AI engine executes a continuous frame processing loop:
        │ 5. Compute bottom-center reference point: (x_center = (x1+x2)/2, y_bottom = y2)
        ▼
 [Zone Containment Test] 
-       │ 6. Shapely ray-casting PIP checks point against active zone polygon
+       │ 6. OpenCV pointPolygonTest PIP checks point against active zone polygon
        ▼
 [State Machine Evaluation] 
        │ 7. Compare current zone state with previous track state:

@@ -19,7 +19,7 @@
 ┌───────────────────▼───────────────┐  ┌─────────────▼───────────────────┐
 │         DATABASE STORAGE          │  │           AI ENGINE             │
 │   Events, Alerts, Evidence, Users │  │  OpenCV + YOLOv8 + ByteTrack +  │
-│         & Zone Definitions        │  │     Shapely Polygon Engine      │
+│         & Zone Definitions        │  │     OpenCV PIP Polygon Engine   │
 └───────────────────────────────────┘  └─────────────────────────────────┘
 ```
 
@@ -35,7 +35,7 @@
 | **Frame Ingestion** | OpenCV (`opencv-python`) | Provides high-performance, low-level camera frame reading from webcams, USB cameras, and video files. Cross-platform support. |
 | **Object Detection** | Ultralytics YOLOv8 (v8n) | Lightweight, single-stage anchor-free detector delivering state-of-the-art accuracy/speed balance for real-time edge processing (> 30 FPS on standard CPUs). |
 | **Multi-Object Tracking** | ByteTrack | Association algorithm that utilizes low-score detection boxes alongside high-score boxes, dramatically improving tracking continuity and reducing ID switches during partial occlusions. |
-| **Spatial Engine** | Shapely & NumPy | Enables robust, mathematical point-in-polygon ray-casting spatial testing with negligible computational overhead (< 1ms per track). |
+| **Spatial Engine** | OpenCV & NumPy | Enables robust, mathematical point-in-polygon (`cv2.pointPolygonTest`) spatial testing with negligible computational overhead (< 1ms per track) and zero extra dependencies. |
 
 ### 2.2 Backend Stack
 

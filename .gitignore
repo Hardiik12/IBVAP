@@ -38,6 +38,9 @@ data/images/*
 !data/images/.gitkeep
 
 # Model weights
+*.pt
+*.onnx
+*.engine
 ai/models/*.pt
 ai/models/*.onnx
 ai/models/*.engine
