@@ -3,16 +3,19 @@
 import React, { useRef, useEffect } from "react";
 import { Zone } from "../../types/zone";
 import { WebSocketAlertMessage } from "../../types/alert";
+import { AIDetectionItem } from "../../types/detection";
 import {
   clearCanvas,
   drawViewportGreenReticles,
   drawVirtualFenceLine,
+  drawPolygonZone,
   drawTacticalIntruderBox,
 } from "../../utils/canvas";
 
 interface CanvasOverlayProps {
   zones: Zone[];
   activeAlert: WebSocketAlertMessage | null;
+  detections?: AIDetectionItem[];
   showZones: boolean;
   showBoundingBoxes: boolean;
   showHud: boolean;
@@ -22,6 +25,7 @@ interface CanvasOverlayProps {
 export const CanvasOverlay: React.FC<CanvasOverlayProps> = ({
   zones,
   activeAlert,
+  detections = [],
   showZones = true,
   showBoundingBoxes = true,
   showHud = true,
@@ -44,32 +48,74 @@ export const CanvasOverlay: React.FC<CanvasOverlayProps> = ({
 
       clearCanvas(ctx, width, height);
 
-      // 1. Draw 4 Green Viewport Corner Reticles (as in image_2.png)
+      // 1. Draw 4 Green Viewport Corner Reticles
       if (showHud) {
         drawViewportGreenReticles(ctx, width, height);
       }
 
-      // 2. Draw the angled glowing red "VIRTUAL FENCE ===" Laser Line
+      // 2. Draw Configured Restricted Polygon Zones & Virtual Fence Line
       if (showZones) {
-        drawVirtualFenceLine(ctx, width, height, true);
+        if (zones && zones.length > 0) {
+          zones.forEach((z) => {
+            drawPolygonZone(
+              ctx,
+              {
+                polygon: z.polygon,
+                name: z.name,
+                isAlertActive: !!activeAlert || detections.some((d) => d.is_inside_zone),
+              },
+              width,
+              height
+            );
+          });
+        }
+        // Glowing Tactical Virtual Fence laser line
+        const hasBreach = detections.some((d) => d.is_inside_zone) || !!activeAlert;
+        drawVirtualFenceLine(ctx, width, height, hasBreach);
       }
 
-      // 3. Draw Intruder Red Target Box with Bounding Box ID Callout & Crosshair
+      // 3. Draw REAL YOLOv8 Detections (Bounding Boxes + Labels + Track IDs + Ground Reference Points)
       if (showBoundingBoxes) {
-        drawTacticalIntruderBox(
-          ctx,
-          {
-            x1: 0.38,
-            y1: 0.28,
-            x2: 0.51,
-            y2: 0.76,
-            trackId: activeAlert?.track_id || 1,
-            isInsideZone: true,
-            isNormalized: true,
-          },
-          width,
-          height
-        );
+        if (detections && detections.length > 0) {
+          // Render each real detected object dynamically
+          detections.forEach((item) => {
+            drawTacticalIntruderBox(
+              ctx,
+              {
+                x1: item.bbox[0],
+                y1: item.bbox[1],
+                x2: item.bbox[2],
+                y2: item.bbox[3],
+                className: item.class_name,
+                confidence: item.confidence,
+                trackId: item.track_id,
+                isInsideZone: item.is_inside_zone,
+                isNormalized: true,
+              },
+              width,
+              height
+            );
+          });
+        } else if (activeAlert && activeAlert.bbox) {
+          // Fallback to active alert bounding box if present
+          const bbox = activeAlert.bbox;
+          drawTacticalIntruderBox(
+            ctx,
+            {
+              x1: bbox[0],
+              y1: bbox[1],
+              x2: bbox[2],
+              y2: bbox[3],
+              className: activeAlert.class_name || "person",
+              confidence: activeAlert.confidence || 0.92,
+              trackId: activeAlert.track_id || 1,
+              isInsideZone: true,
+              isNormalized: true,
+            },
+            width,
+            height
+          );
+        }
       }
 
       animationFrameId = requestAnimationFrame(render);
@@ -80,7 +126,7 @@ export const CanvasOverlay: React.FC<CanvasOverlayProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [zones, activeAlert, showZones, showBoundingBoxes, showHud, cameraId]);
+  }, [zones, activeAlert, detections, showZones, showBoundingBoxes, showHud, cameraId]);
 
   useEffect(() => {
     const handleResize = () => {

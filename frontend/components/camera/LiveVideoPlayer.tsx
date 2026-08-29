@@ -2,14 +2,55 @@
 
 import React, { useRef, useState } from "react";
 import { CanvasOverlay } from "./CanvasOverlay";
+import { WebcamFeed } from "./WebcamFeed";
+import { CameraControls } from "./CameraControls";
+import { useWebcam } from "../../hooks/useWebcam";
+import { useAIDetection } from "../../hooks/useAIDetection";
 import { useCameraContext } from "../../context/CameraContext";
 import { useAlerts } from "../../hooks/useAlerts";
-import { Maximize2, ShieldAlert } from "lucide-react";
+import { Maximize2, Video, VideoOff, Cpu, Scan } from "lucide-react";
 
 export const LiveVideoPlayer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { selectedCamera, zones, showZones, showBoundingBoxes, showHud } = useCameraContext();
-  const { latestAlert } = useAlerts();
+  const { latestAlert, addAlert } = useAlerts();
+
+  // 1. Initialize browser webcam stream
+  const webcam = useWebcam({
+    autoStart: true,
+    idealWidth: 1280,
+    idealHeight: 720,
+    facingMode: "user",
+  });
+
+  // 2. Real-time Python YOLOv8 Detector & Tracker integration
+  const { detections, inferenceMs, aiFps } = useAIDetection({
+    videoRef: webcam.videoRef,
+    isEnabled: webcam.status === "active",
+    zones,
+    cameraId: selectedCamera?.id || "cam-01",
+    confidenceThreshold: 0.3,
+    intervalMs: 140, // ~7 FPS continuous AI vision stream
+    onIntrusion: (item) => {
+      // Dispatch real intrusion event to alert system
+      addAlert({
+        type: "NEW_ALERT",
+        alert_id: `alt-${Math.floor(Math.random() * 90000) + 10000}`,
+        event_id: `evt-${Math.floor(Math.random() * 90000) + 10000}`,
+        event_type: "INTRUSION",
+        camera_id: selectedCamera?.id || "cam-01",
+        camera_name: selectedCamera?.name || "MacBook Webcam",
+        zone_name: item.zone_name || "Perimeter Exclusion Zone 1",
+        track_id: item.track_id,
+        class_name: item.class_name,
+        confidence: item.confidence,
+        severity: "CRITICAL",
+        timestamp: new Date().toISOString(),
+        evidence_id: `evi-${Math.floor(Math.random() * 90000) + 10000}`,
+        bbox: item.bbox,
+      });
+    },
+  });
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -24,7 +65,7 @@ export const LiveVideoPlayer: React.FC = () => {
     }
   };
 
-  // Sample Heatmap 10x10 Matrix colors (Green / Yellow / Red / Blue / Purple)
+  // Sample Heatmap 10x10 Matrix colors
   const heatmapGrid = [
     ["#10b981", "#10b981", "#f59e0b", "#f59e0b", "#ef4444", "#ef4444", "#ef4444", "#3b82f6", "#3b82f6", "#3b82f6"],
     ["#10b981", "#10b981", "#f59e0b", "#f59e0b", "#ef4444", "#ef4444", "#ef4444", "#3b82f6", "#3b82f6", "#3b82f6"],
@@ -41,27 +82,79 @@ export const LiveVideoPlayer: React.FC = () => {
     >
       {/* Video Viewport */}
       <div className="relative aspect-[16/9] w-full bg-black overflow-hidden flex items-center justify-center">
-        {/* Background Thermal Infrared Video / Footage Image */}
-        <img
-          src="/surveillance-bg.jpg"
-          alt="Thermal Surveillance Feed"
-          className="absolute inset-0 w-full h-full object-cover select-none filter contrast-125 brightness-90"
-        />
+        {/* Real MacBook / USB Webcam Video Stream */}
+        <WebcamFeed webcam={webcam} cameraName={selectedCamera?.name} />
 
         {/* Tactical Scanlines */}
         <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-25 pointer-events-none z-10" />
 
-        {/* Live Canvas Overlay (Corner Reticles, Virtual Fence, Red Target BBox) */}
-        <CanvasOverlay
-          zones={zones}
-          activeAlert={latestAlert}
-          showZones={showZones}
-          showBoundingBoxes={showBoundingBoxes}
-          showHud={showHud}
-          cameraId={selectedCamera?.id || "cam-01"}
-        />
+        {/* Live Canvas Overlay (Corner Reticles, Virtual Fence, REAL YOLOv8 Dynamic Bounding Boxes) */}
+        {webcam.status === "active" && (
+          <CanvasOverlay
+            zones={zones}
+            activeAlert={latestAlert}
+            detections={detections}
+            showZones={showZones}
+            showBoundingBoxes={showBoundingBoxes}
+            showHud={showHud}
+            cameraId={selectedCamera?.id || "cam-01"}
+          />
+        )}
 
-        {/* Bottom-Left Overlaid Tactical Heatmap Matrix (as seen in image_2.png) */}
+        {/* Top-Right Live Stream HUD Telemetry & Webcam Controls */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+          {/* AI Inference Telemetry Pill */}
+          {webcam.status === "active" && (
+            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-white/20 text-xs font-mono shadow-md text-slate-300">
+              <Cpu className="w-3.5 h-3.5 text-blue-400" />
+              <span>YOLOv8: <strong className="text-emerald-400">{inferenceMs}ms</strong></span>
+              <span className="text-slate-600">|</span>
+              <span>DETECTED: <strong className="text-slate-100">{detections.length}</strong></span>
+            </div>
+          )}
+
+          {/* Live Webcam Status Pill */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-white/20 text-xs font-mono shadow-md">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                webcam.status === "active"
+                  ? "bg-emerald-500 animate-pulse"
+                  : webcam.status === "requesting"
+                  ? "bg-amber-500 animate-ping"
+                  : "bg-red-500"
+              }`}
+            />
+            <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">
+              {webcam.status === "active"
+                ? "REAL WEBCAM LIVE"
+                : webcam.status === "requesting"
+                ? "INITIALIZING..."
+                : webcam.status === "paused"
+                ? "PAUSED"
+                : "OFFLINE"}
+            </span>
+            {webcam.status === "active" && webcam.resolution.width > 0 && (
+              <span className="text-[10px] text-slate-400 pl-1 border-l border-white/10 hidden md:inline">
+                {webcam.resolution.width}x{webcam.resolution.height}
+              </span>
+            )}
+          </div>
+
+          {/* Toggle Webcam Power / Mute Video Button */}
+          <button
+            onClick={webcam.toggleWebcam}
+            className={`p-1.5 rounded-md backdrop-blur-md border transition text-xs font-mono flex items-center gap-1 ${
+              webcam.status === "active"
+                ? "bg-emerald-950/70 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/80"
+                : "bg-surface-200/80 border-white/20 text-slate-300 hover:bg-surface-100"
+            }`}
+            title={webcam.status === "active" ? "Pause Webcam Feed" : "Start Webcam Feed"}
+          >
+            {webcam.status === "active" ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* Bottom-Left Overlaid Tactical Heatmap Matrix */}
         <div className="absolute bottom-4 left-4 z-20 p-1.5 rounded bg-black/80 backdrop-blur-md border border-white/20 shadow-lg">
           <div className="flex flex-col gap-0.5">
             {heatmapGrid.map((row, rIdx) => (
@@ -87,6 +180,9 @@ export const LiveVideoPlayer: React.FC = () => {
           <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Embedded Tactical Controls Bar */}
+      <CameraControls />
     </div>
   );
 };

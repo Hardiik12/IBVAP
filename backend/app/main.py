@@ -1,3 +1,15 @@
+import os
+import sys
+from pathlib import Path
+
+# Ensure both workspace root (for ai package) and backend are always in sys.path
+_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+_BACKEND = _ROOT / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from datetime import datetime, timezone
@@ -7,6 +19,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.logging import setup_logging, logger
 from app.api.api import api_router
+
 
 # Initialize structured logging
 setup_logging()

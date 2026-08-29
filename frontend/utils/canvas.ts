@@ -6,6 +6,7 @@ export interface BoxRenderOptions {
   x2: number;
   y2: number;
   label?: string;
+  className?: string;
   trackId?: number;
   confidence?: number;
   isInsideZone?: boolean;
@@ -25,7 +26,7 @@ export function clearCanvas(ctx: CanvasRenderingContext2D, width: number, height
 }
 
 /**
- * Draws the 4 massive Green Corner Reticles in the viewport (as seen in image_2.png)
+ * Draws the 4 massive Green Corner Reticles in the viewport
  */
 export function drawViewportGreenReticles(
   ctx: CanvasRenderingContext2D,
@@ -76,7 +77,7 @@ export function drawViewportGreenReticles(
 }
 
 /**
- * Renders the glowing red angled "VIRTUAL FENCE ===" laser line across the surveillance feed
+ * Renders the glowing red/green virtual fence laser line across the surveillance feed
  */
 export function drawVirtualFenceLine(
   ctx: CanvasRenderingContext2D,
@@ -133,7 +134,7 @@ export function drawVirtualFenceLine(
 }
 
 /**
- * Draws the tactical intruder targeting box with callout pointer and center crosshair
+ * Draws dynamic tactical YOLO detection bounding box with real class label, confidence, track ID, and crosshairs
  */
 export function drawTacticalIntruderBox(
   ctx: CanvasRenderingContext2D,
@@ -141,7 +142,18 @@ export function drawTacticalIntruderBox(
   canvasWidth: number,
   canvasHeight: number
 ): void {
-  let { x1, y1, x2, y2, isNormalized = true, trackId = 1, isInsideZone = true } = options;
+  let {
+    x1,
+    y1,
+    x2,
+    y2,
+    isNormalized = true,
+    trackId = 1,
+    className = "person",
+    confidence = 0.9,
+    label,
+    isInsideZone = false,
+  } = options;
 
   if (isNormalized) {
     x1 = x1 * canvasWidth;
@@ -150,51 +162,56 @@ export function drawTacticalIntruderBox(
     y2 = y2 * canvasHeight;
   }
 
-  const boxW = x2 - x1;
-  const boxH = y2 - y1;
+  const boxW = Math.max(10, x2 - x1);
+  const boxH = Math.max(10, y2 - y1);
   const centerX = (x1 + x2) / 2;
   const centerY = (y1 + y2) / 2;
   const boxColor = isInsideZone ? "#ff2a2a" : "#00ff66";
 
   ctx.save();
 
-  // 1. Red Target Bounding Box
+  // 1. Glowing Target Bounding Box
   ctx.strokeStyle = boxColor;
   ctx.lineWidth = 2;
   ctx.shadowColor = boxColor;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 12;
 
   ctx.beginPath();
   ctx.rect(x1, y1, boxW, boxH);
   ctx.stroke();
 
   // Subtle interior fill
-  ctx.fillStyle = isInsideZone ? "rgba(255, 42, 42, 0.08)" : "rgba(0, 255, 102, 0.08)";
+  ctx.fillStyle = isInsideZone ? "rgba(255, 42, 42, 0.12)" : "rgba(0, 255, 102, 0.08)";
   ctx.fill();
 
   ctx.shadowBlur = 0;
 
-  // 2. Top Banner Label: "INTRUDER | DETECTED 00:04:12"
-  const labelText = "INTRUDER | DETECTED 00:04:12";
+  // 2. Top Banner Label: "[CLASS] [CONF%] | [STATUS]"
+  const confPercent = Math.round(confidence * 100);
+  const statusText = isInsideZone ? "ZONE INTRUSION" : "TRACKED";
+  const labelText = label || `${className.toUpperCase()} ${confPercent}% | ${statusText}`;
+
   ctx.font = "bold 10px JetBrains Mono, monospace";
   const metrics = ctx.measureText(labelText);
   const bannerW = metrics.width + 12;
+  const bannerY = Math.max(20, y1);
 
-  ctx.fillStyle = "rgba(10, 15, 25, 0.95)";
+  ctx.fillStyle = "rgba(10, 15, 25, 0.92)";
   ctx.strokeStyle = boxColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(x1, y1 - 20, bannerW, 18, 2);
+  ctx.roundRect(x1, bannerY - 20, bannerW, 18, 2);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = boxColor;
-  ctx.fillText(labelText, x1 + 6, y1 - 7);
+  ctx.fillText(labelText, x1 + 6, bannerY - 7);
 
-  // 3. Right Callout Tag: "Bounding Box ID:01" with leader line
-  const calloutX = x2 + 18;
+  // 3. Right Callout Tag: "Track #ID" with leader line
+  const calloutX = Math.min(canvasWidth - 110, x2 + 16);
   const calloutY = y1 + 14;
-  const calloutText = `Bounding Box ID:${trackId < 10 ? `0${trackId}` : trackId}`;
+  const formattedId = trackId > 0 ? (trackId < 10 ? `0${trackId}` : `${trackId}`) : "01";
+  const calloutText = `Track #${formattedId}`;
 
   // Leader line
   ctx.strokeStyle = "#94a3b8";
@@ -202,7 +219,7 @@ export function drawTacticalIntruderBox(
   ctx.beginPath();
   ctx.moveTo(x2, y1 + 14);
   ctx.lineTo(calloutX, calloutY);
-  ctx.lineTo(calloutX + 8, calloutY);
+  ctx.lineTo(calloutX + 6, calloutY);
   ctx.stroke();
 
   // Callout Box
@@ -213,21 +230,30 @@ export function drawTacticalIntruderBox(
   ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
   ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
   ctx.beginPath();
-  ctx.roundRect(calloutX + 8, calloutY - 10, tagW, 20, 2);
+  ctx.roundRect(calloutX + 6, calloutY - 10, tagW, 20, 2);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = "#cbd5e1";
-  ctx.fillText(calloutText, calloutX + 13, calloutY + 4);
+  ctx.fillText(calloutText, calloutX + 11, calloutY + 4);
 
   // 4. Center-Mass Target Crosshair
   ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(centerX - 10, centerY);
-  ctx.lineTo(centerX + 10, centerY);
-  ctx.moveTo(centerX, centerY - 10);
-  ctx.lineTo(centerX, centerY + 10);
+  ctx.moveTo(centerX - 8, centerY);
+  ctx.lineTo(centerX + 8, centerY);
+  ctx.moveTo(centerX, centerY - 8);
+  ctx.lineTo(centerX, centerY + 8);
+  ctx.stroke();
+
+  // 5. Bottom-Center Reference Point (Ground Contact)
+  ctx.beginPath();
+  ctx.arc(centerX, y2, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = isInsideZone ? "#ff2a2a" : "#00ff66";
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1;
   ctx.stroke();
 
   ctx.restore();
