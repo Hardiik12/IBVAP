@@ -14,30 +14,32 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 def get_current_user(
     db: Session = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme)
+    token: Optional[str] = Depends(oauth2_scheme),
 ) -> User:
     """
     Decodes Bearer JWT access token and retrieves active authenticated user.
-    In development mode, falls back to the default seed admin/operator user.
+    Strictly verifies that MFA verification has been completed (scope != 'mfa_pending').
     """
     if token:
         payload = security.decode_access_token(token)
         if payload and "sub" in payload:
+            # Check scope — reject temporary Step 1 MFA challenge tokens
+            if payload.get("scope") == "mfa_pending":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="MFA verification required before accessing this resource.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
             user_id = payload["sub"]
             user = db.query(User).filter(User.id == user_id).first()
             if user and user.is_active:
                 return user
 
-    # Development fallback
-    if settings.DEBUG or settings.APP_ENV == "development":
-        demo_user = db.query(User).filter(User.username == "admin").first()
-        if demo_user:
-            return demo_user
-
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"}
+        detail="Authentication credentials were not provided or have expired.",
+        headers={"WWW-Authenticate": "Bearer"},
     )
 
 
@@ -50,7 +52,7 @@ def require_role(allowed_roles: List[UserRole]) -> Callable:
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions to perform this action"
+                detail="Insufficient permissions to perform this action",
             )
         return current_user
 

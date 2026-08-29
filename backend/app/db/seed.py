@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
@@ -20,22 +21,30 @@ def seed_demo_data(db: Session) -> None:
     """
     logger.info("Checking for demo seed data...")
 
+    # Development operator credentials from environment or defaults
+    dev_admin_user = os.environ.get("DEV_ADMIN_USERNAME", "admin")
+    dev_admin_pass = os.environ.get("DEV_ADMIN_PASSWORD", "Admin@123")
+
     # 1. Seed Demo Admin Users
-    for uname, uemail, upass in [
-        ("admin", "admin@ibvap.local", "admin123"),
-        ("admin_user", "admin_user@ibvap.local", "AdminSecret123!")
-    ]:
+    seed_users = [
+        (dev_admin_user, f"{dev_admin_user}@ibvap.local", dev_admin_pass, UserRole.ADMINISTRATOR),
+        ("admin_user", "admin_user@ibvap.local", "AdminSecret123!", UserRole.ADMINISTRATOR),
+        ("operator_01", "operator01@ibvap.local", "Operator@123", UserRole.OPERATOR),
+    ]
+
+    for uname, uemail, upass, urole in seed_users:
         user = db.query(User).filter(User.username == uname).first()
         if not user:
             user = User(
                 username=uname,
                 email=uemail,
                 password_hash=hash_password(upass),
-                role=UserRole.ADMINISTRATOR,
-                is_active=True
+                role=urole,
+                is_active=True,
+                mfa_enabled=False,
             )
             db.add(user)
-            logger.info(f"Seeded development admin user ('{uname}').")
+            logger.info(f"Seeded development user ('{uname}').")
         else:
             user.password_hash = hash_password(upass)
 
@@ -48,7 +57,7 @@ def seed_demo_data(db: Session) -> None:
             source_type=CameraSourceType.WEBCAM,
             source_url="0",
             location="Gate Alpha Perimeter",
-            is_active=True
+            is_active=True,
         )
         db.add(camera)
         db.flush()
@@ -65,9 +74,9 @@ def seed_demo_data(db: Session) -> None:
                 [0.20, 0.30],
                 [0.80, 0.30],
                 [0.85, 0.85],
-                [0.15, 0.85]
+                [0.15, 0.85],
             ],
-            is_active=True
+            is_active=True,
         )
         db.add(zone)
         db.flush()
@@ -77,7 +86,7 @@ def seed_demo_data(db: Session) -> None:
     existing_event = db.query(Event).first()
     if not existing_event:
         now = datetime.now(timezone.utc)
-        
+
         # Event 1: Intrusion Breach
         ev1 = Event(
             id="evt-demo-001",
@@ -91,7 +100,7 @@ def seed_demo_data(db: Session) -> None:
             status=EventStatus.NEW,
             bounding_box=[0.42, 0.35, 0.58, 0.65],
             position=[0.50, 0.65],
-            event_metadata={"confidence": 0.94, "class": "person", "speed_kmh": 6.2}
+            event_metadata={"confidence": 0.94, "class": "person", "speed_kmh": 6.2},
         )
         db.add(ev1)
         db.flush()
@@ -100,7 +109,7 @@ def seed_demo_data(db: Session) -> None:
         al1 = Alert(
             id="alt-demo-001",
             event_id=ev1.id,
-            status=AlertStatus.ACTIVE
+            status=AlertStatus.ACTIVE,
         )
         db.add(al1)
 
@@ -112,7 +121,7 @@ def seed_demo_data(db: Session) -> None:
             file_path="sim_frame_demo_01.jpg",
             sha256_hash="5e02e28396de63568f5aba8333e4cae1c25d4b37255edb06d3de795c21b3a730",
             captured_at=now - timedelta(minutes=4),
-            evidence_metadata={"camera_resolution": "1920x1080", "yolo_model": "YOLOv8n"}
+            evidence_metadata={"camera_resolution": "1920x1080", "yolo_model": "YOLOv8n"},
         )
         db.add(evd1)
 
@@ -129,7 +138,7 @@ def seed_demo_data(db: Session) -> None:
             status=EventStatus.PROCESSED,
             bounding_box=[0.25, 0.40, 0.45, 0.70],
             position=[0.35, 0.70],
-            event_metadata={"confidence": 0.88, "class": "vehicle", "dwell_time_sec": 45}
+            event_metadata={"confidence": 0.88, "class": "vehicle", "dwell_time_sec": 45},
         )
         db.add(ev2)
         db.flush()
@@ -137,7 +146,7 @@ def seed_demo_data(db: Session) -> None:
         al2 = Alert(
             id="alt-demo-002",
             event_id=ev2.id,
-            status=AlertStatus.ACKNOWLEDGED
+            status=AlertStatus.ACKNOWLEDGED,
         )
         db.add(al2)
 
@@ -148,7 +157,7 @@ def seed_demo_data(db: Session) -> None:
             file_path="sim_frame_demo_02.jpg",
             sha256_hash="9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
             captured_at=now - timedelta(minutes=12),
-            evidence_metadata={"camera_resolution": "1920x1080", "yolo_model": "YOLOv8n"}
+            evidence_metadata={"camera_resolution": "1920x1080", "yolo_model": "YOLOv8n"},
         )
         db.add(evd2)
         logger.info("Seeded demo events, alerts, and evidence snapshots.")

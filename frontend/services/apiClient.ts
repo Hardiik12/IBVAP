@@ -17,12 +17,21 @@ export class ApiError extends Error {
 }
 
 export async function fetchApi<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { timeoutMs = 4000, ...fetchOptions } = options;
+  const { timeoutMs = 8000, ...fetchOptions } = options;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  // Automatically attach auth token if present
+  let authHeader: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("ibvap_access_token");
+    if (token) {
+      authHeader["Authorization"] = `Bearer ${token}`;
+    }
+  }
 
   try {
     const response = await fetch(url, {
@@ -30,6 +39,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestOptions = {}
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        ...authHeader,
         ...fetchOptions.headers,
       },
       signal: controller.signal,

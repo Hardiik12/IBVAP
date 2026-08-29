@@ -50,12 +50,22 @@ def setup_test_database() -> Generator[None, None, None]:
     db = TestingSessionLocal()
     users = [
         User(
+            id="admin-uuid-000",
+            username="admin",
+            email="admin@ibvap.local",
+            password_hash=security.hash_password("Admin@123"),
+            role=UserRole.OPERATOR,
+            is_active=True,
+            mfa_enabled=False
+        ),
+        User(
             id="admin-uuid-001",
             username="admin_user",
             email="admin@ibvap.test",
             password_hash=security.hash_password("AdminSecret123!"),
             role=UserRole.ADMINISTRATOR,
-            is_active=True
+            is_active=True,
+            mfa_enabled=False
         ),
         User(
             id="operator-uuid-001",

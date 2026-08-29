@@ -12,8 +12,8 @@ export function useHealthCheck(pollIntervalMs = 5000) {
     const data = await healthService.getHealth();
     setHealth(data);
     setIsHealthy(
-      (data.status === "healthy" || data.status === "ok") &&
-      (data.database === "connected" || data.database === "ok" || !data.database)
+      data.status === "healthy" &&
+      (data.database === "connected" || !data.database)
     );
 
   }, []);

@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "../context/AuthContext";
 import { AlertProvider } from "../context/AlertContext";
 import { CameraProvider } from "../context/CameraContext";
-import { Sidebar } from "../components/layout/Sidebar";
-import { Header } from "../components/layout/Header";
-import { AlertAudio } from "../components/alerts/AlertAudio";
-import { AlertBanner } from "../components/alerts/AlertBanner";
-import { EvidenceModal } from "../components/evidence/EvidenceModal";
+import { AppShell } from "../components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "IBVAP — Intelligent Border Video Analytics Platform",
@@ -21,33 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-slate-100 flex h-screen overflow-hidden antialiased">
-        <AlertProvider>
-          <CameraProvider>
-            {/* Native Audio Synthesizer */}
-            <AlertAudio />
-
-            {/* Sidebar Navigation */}
-            <Sidebar />
-
-            {/* Main Application Area */}
-            <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-background">
-              {/* Header */}
-              <Header />
-
-              {/* Dynamic Alert Banner upon Intrusion */}
-              <AlertBanner />
-
-              {/* Page Content */}
-              <main className="flex-1 overflow-y-auto custom-scrollbar p-3.5">
-                {children}
-              </main>
-
-            </div>
-
-            {/* Global Evidence Inspection & SHA-256 Verification Modal */}
-            <EvidenceModal />
-          </CameraProvider>
-        </AlertProvider>
+        <AuthProvider>
+          <AlertProvider>
+            <CameraProvider>
+              <AppShell>{children}</AppShell>
+            </CameraProvider>
+          </AlertProvider>
+        </AuthProvider>
       </body>
     </html>
   );

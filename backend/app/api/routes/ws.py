@@ -29,10 +29,7 @@ async def handle_ws_connection(websocket: WebSocket, token: Optional[str], db: S
         if payload and "sub" in payload:
             user = db.query(User).filter(User.id == payload["sub"]).first()
 
-    # Development fallback
-    if not user and (settings.DEBUG or settings.APP_ENV == "development"):
-        user = db.query(User).filter(User.username.in_(["admin", "admin_user"])).first()
-
+    # Strictly validate user from token
     if not user or not user.is_active:
         logger.warning("WebSocket connection attempt rejected: missing or invalid credentials.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token")
