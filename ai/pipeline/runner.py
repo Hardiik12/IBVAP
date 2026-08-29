@@ -16,13 +16,22 @@ from ai.core.config import ai_settings
 from ai.core.logging import setup_ai_logging
 from ai.camera.source import create_camera_source, BaseCameraSource
 from ai.camera.frame_processor import FrameProcessor
-from ai.events.engine import IntrusionEventEngine
-from ai.events.schemas import EventPayload
-from ai.tracking.schemas import Track
-from ai.tracking.tracker import ByteTracker
-from ai.zones.engine import ZoneEngine
+
+try:
+    from ai.events.engine import IntrusionEventEngine
+    from ai.events.schemas import EventPayload
+    from ai.tracking.schemas import Track
+    from ai.tracking.tracker import ByteTracker
+    from ai.zones.engine import ZoneEngine
+except ImportError:
+    IntrusionEventEngine = None  # type: ignore
+    EventPayload = None  # type: ignore
+    Track = None  # type: ignore
+    ByteTracker = None  # type: ignore
+    ZoneEngine = None  # type: ignore
 
 logger = logging.getLogger(__name__)
+
 
 
 @dataclass
