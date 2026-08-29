@@ -280,6 +280,7 @@ def list_evidence(
 
 
 @router.patch("/evidence/{evidence_id}", response_model=EvidenceResponse)
+
 def update_evidence(
     evidence_id: str,
     evidence_in: EvidenceUpdate,

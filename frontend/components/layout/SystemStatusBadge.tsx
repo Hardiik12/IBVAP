@@ -16,8 +16,9 @@ export const SystemStatusBadge: React.FC = () => {
           }`}
         />
         <span className="text-slate-300 font-medium">
-          {health?.status === "healthy" ? "SYSTEM NORMAL" : "DEGRADED"}
+          {health?.status === "healthy" || health?.status === "ok" ? "SYSTEM NORMAL" : "DEGRADED"}
         </span>
+
       </div>
 
       <span className="text-slate-600">|</span>

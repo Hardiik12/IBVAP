@@ -11,7 +11,11 @@ export function useHealthCheck(pollIntervalMs = 5000) {
   const check = useCallback(async () => {
     const data = await healthService.getHealth();
     setHealth(data);
-    setIsHealthy(data.status === "healthy" && data.database === "connected");
+    setIsHealthy(
+      (data.status === "healthy" || data.status === "ok") &&
+      (data.database === "connected" || data.database === "ok" || !data.database)
+    );
+
   }, []);
 
   useEffect(() => {

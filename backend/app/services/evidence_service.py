@@ -38,11 +38,19 @@ class EvidenceService:
         return evidence
 
     @staticmethod
+    def list_all_evidence(db: Session, limit: int = 100, offset: int = 0) -> List[Evidence]:
+        """
+        List all evidence records across all events, sorted by captured_at DESC.
+        """
+        return db.query(Evidence).order_by(Evidence.captured_at.desc()).offset(offset).limit(limit).all()
+
+    @staticmethod
     def list_evidence(db: Session, event_id: str) -> List[Evidence]:
         """
         List all evidence records associated with an event, sorted by captured_at ASC.
         Raises 404 if event is missing.
         """
+
         # Verify event exists
         EventService.get_event(db, event_id)
 
