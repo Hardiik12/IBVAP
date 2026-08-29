@@ -1,6 +1,15 @@
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+
+def format_utc_iso(dt: datetime) -> str:
+    """Format datetime as strict ISO 8601 UTC string with Z suffix."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
 class EvidenceBase(BaseModel):
@@ -8,6 +17,10 @@ class EvidenceBase(BaseModel):
     file_path: str = Field(..., min_length=1, max_length=255)
     captured_at: datetime = Field(...)
     evidence_metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata")
+
+    @field_serializer("captured_at")
+    def serialize_captured_at(self, dt: datetime, _info) -> str:
+        return format_utc_iso(dt)
 
     class Config:
         populate_by_name = True
@@ -32,12 +45,13 @@ class EvidenceResponse(EvidenceBase):
     image_url: Optional[str] = None
     created_at: datetime
 
+    @field_serializer("created_at")
+    def serialize_created_at(self, dt: datetime, _info) -> str:
+        return format_utc_iso(dt)
+
     class Config:
         from_attributes = True
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 
 class EvidenceCaptureRequest(BaseModel):
@@ -69,6 +83,10 @@ class EvidenceDetailResponse(BaseModel):
     severity: Optional[str] = "HIGH"
     verified_status: Optional[str] = "UNKNOWN"
 
+    @field_serializer("captured_at")
+    def serialize_captured_at(self, dt: datetime, _info) -> str:
+        return format_utc_iso(dt)
+
     class Config:
         populate_by_name = True
 
@@ -90,6 +108,10 @@ class EvidenceVerificationResponse(BaseModel):
     stored_hash: Optional[str] = None
     current_hash: Optional[str] = None
     verified_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_serializer("verified_at")
+    def serialize_verified_at(self, dt: Optional[datetime], _info) -> Optional[str]:
+        return format_utc_iso(dt) if dt else None
 
     class Config:
         populate_by_name = True

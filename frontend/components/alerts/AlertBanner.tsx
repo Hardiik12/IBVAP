@@ -1,12 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAlerts } from "../../hooks/useAlerts";
-import { ShieldAlert, ArrowRight, X } from "lucide-react";
+import { ShieldAlert, ArrowRight } from "lucide-react";
 import { formatTimeAgo } from "../../utils/formatters";
 
 export const AlertBanner: React.FC = () => {
   const { latestAlert, openEvidenceModal } = useAlerts();
+  const [, setTick] = useState(0);
+
+  // Live timer tick to continuously refresh relative time display every 2 seconds
+  useEffect(() => {
+    if (!latestAlert) return;
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [latestAlert]);
 
   if (!latestAlert) return null;
 
@@ -28,7 +38,7 @@ export const AlertBanner: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-xs font-mono text-red-400" suppressHydrationWarning>
+        <span className="text-xs font-mono text-red-400 font-bold" suppressHydrationWarning>
           {formatTimeAgo(latestAlert.timestamp)}
         </span>
 

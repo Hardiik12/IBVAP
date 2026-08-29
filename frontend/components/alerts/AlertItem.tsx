@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { AlertState } from "../../types/alert";
 import { Badge } from "../ui/Badge";
 import { formatTimeAgo } from "../../utils/formatters";
-import { ShieldAlert, FileSearch, CheckCircle2 } from "lucide-react";
+import { FileSearch, CheckCircle2 } from "lucide-react";
 import { useAlerts } from "../../hooks/useAlerts";
 
 interface AlertItemProps {
@@ -13,6 +13,14 @@ interface AlertItemProps {
 
 export const AlertItem: React.FC<AlertItemProps> = ({ alert }) => {
   const { markAsRead, openEvidenceModal } = useAlerts();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div
@@ -29,10 +37,9 @@ export const AlertItem: React.FC<AlertItemProps> = ({ alert }) => {
             TRACK #{alert.track_id}
           </span>
         </div>
-        <span className="text-[11px] font-mono text-slate-500" suppressHydrationWarning>
+        <span className="text-[11px] font-mono text-slate-400 font-bold" suppressHydrationWarning>
           {formatTimeAgo(alert.timestamp)}
         </span>
-
       </div>
 
       <div className="text-xs text-slate-300 mb-2.5">

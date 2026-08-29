@@ -1,14 +1,23 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, field_serializer
 from app.models.enums import EventType, EventSeverity, EventStatus
+
+
+def format_utc_iso(dt: datetime) -> str:
+    """Format datetime as strict ISO 8601 UTC string with Z suffix."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
 class EventBase(BaseModel):
     event_identifier: str = Field(..., min_length=1, max_length=50)
     event_type: EventType = Field(default=EventType.INTRUSION)
-    camera_id: str = Field(..., min_length=36, max_length=36)
-    zone_id: Optional[str] = Field(None, min_length=36, max_length=36)
+    camera_id: str = Field(..., min_length=1, max_length=36)
+    zone_id: Optional[str] = Field(None, min_length=1, max_length=36)
     track_id: int = Field(...)
     timestamp: datetime = Field(...)
     severity: EventSeverity = Field(default=EventSeverity.HIGH)
@@ -16,6 +25,10 @@ class EventBase(BaseModel):
     bounding_box: Optional[Dict[str, Any]] = None
     position: Optional[Dict[str, Any]] = None
     event_metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata")
+
+    @field_serializer("timestamp")
+    def serialize_timestamp(self, dt: datetime, _info) -> str:
+        return format_utc_iso(dt)
 
     @field_validator("bounding_box")
     @classmethod
@@ -70,10 +83,13 @@ class EventResponse(EventBase):
     created_at: datetime
     alert_id: Optional[str] = None
 
+    @field_serializer("created_at")
+    def serialize_created_at(self, dt: datetime, _info) -> str:
+        return format_utc_iso(dt)
+
     class Config:
         from_attributes = True
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+
+
 DefinitionResponse = EventResponse

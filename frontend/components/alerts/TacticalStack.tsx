@@ -1,13 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
-import { Check, X, Edit3, ChevronUp, Radio } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Check, ChevronUp } from "lucide-react";
 import { useAlerts } from "../../hooks/useAlerts";
 import { formatTimeAgo } from "../../utils/formatters";
 
 export const TacticalStack: React.FC = () => {
-  const { alerts, latestAlert, openEvidenceModal } = useAlerts();
-  const [annotation, setAnnotation] = useState("Suspect heading east...");
+  const { alerts, openEvidenceModal } = useAlerts();
+  const [, setTick] = useState(0);
+
+  // Live timer tick to continuously refresh relative time display every 2.5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   // 20-segment LED bar
   const totalSegments = 20;
@@ -85,7 +93,7 @@ export const TacticalStack: React.FC = () => {
             <ChevronUp className="w-4 h-4 text-slate-400 cursor-pointer hover:text-white" />
           </div>
 
-          {/* Render Real Alerts if present, or initial tactical cards */}
+          {/* Render Real Alerts if present, or initial tactical card */}
           {displayAlerts.length > 0 ? (
             displayAlerts.map((alt, idx) => (
               <div
@@ -98,7 +106,7 @@ export const TacticalStack: React.FC = () => {
                     <span>{alt.event_type || "INTRUSION"}</span>
                     {alt.track_id && <span className="text-[10px] text-slate-400">#{alt.track_id}</span>}
                   </div>
-                  <span className="text-slate-400 text-[10px]" suppressHydrationWarning>
+                  <span className="text-slate-400 text-[10px] font-bold" suppressHydrationWarning>
                     {formatTimeAgo(alt.timestamp)}
                   </span>
                 </div>

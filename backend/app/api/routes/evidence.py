@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.config import settings
 from app.models.user import User
-from app.models.enums import UserRole, EventType, EventSeverity, EventStatus
+from app.models.enums import UserRole, EventType, EventSeverity, EventStatus, AlertStatus
 from app.models.event import Event
 from app.models.evidence import Evidence
 from app.models.alert import Alert
@@ -43,14 +43,26 @@ hash_evidence_role = require_role([UserRole.OPERATOR, UserRole.ADMINISTRATOR])
 
 
 def map_evidence_to_response(evidence: Evidence) -> EvidenceResponse:
-    """Helper to map Evidence model to EvidenceResponse with dynamic image_url."""
+    """Helper to map Evidence model to EvidenceResponse with dynamic image_url and strict UTC."""
+    captured_dt = evidence.captured_at
+    if captured_dt.tzinfo is None:
+        captured_dt = captured_dt.replace(tzinfo=timezone.utc)
+    else:
+        captured_dt = captured_dt.astimezone(timezone.utc)
+
+    created_dt = evidence.created_at
+    if created_dt.tzinfo is None:
+        created_dt = created_dt.replace(tzinfo=timezone.utc)
+    else:
+        created_dt = created_dt.astimezone(timezone.utc)
+
     return EvidenceResponse(
         id=evidence.id,
         evidence_identifier=evidence.evidence_identifier,
         event_id=evidence.event_id,
         file_path=evidence.file_path,
-        captured_at=evidence.captured_at,
-        created_at=evidence.created_at,
+        captured_at=captured_dt,
+        created_at=created_dt,
         sha256_hash=evidence.sha256_hash,
         image_url=f"/api/v1/evidence/{evidence.id}/image",
         metadata=evidence.evidence_metadata,
@@ -67,7 +79,7 @@ def capture_real_evidence(
     Real-Time Evidence Capture & Ingestion Endpoint.
     1. Saves the raw webcam frame captured at the exact moment of intrusion to disk.
     2. Calculates the cryptographic SHA-256 binary hash digest immediately.
-    3. Persists the Event, Alert, and Evidence records atomically in the database.
+    3. Persists the Event, Alert, and Evidence records atomically in the database with authoritative UTC timestamps.
     4. Broadcasts real-time WebSocket alert.
     """
     try:
@@ -95,7 +107,9 @@ def capture_real_evidence(
             f.write(image_bytes)
 
         rel_file_path = f"data/evidence/{filename}"
-        captured_dt = payload.timestamp or datetime.now(timezone.utc)
+        
+        # Authoritative UTC Server Timestamp
+        captured_dt = datetime.now(timezone.utc)
 
         # 5. Resolve valid camera
         camera_id = payload.camera_id or "cam-01"
@@ -110,7 +124,7 @@ def capture_real_evidence(
             cam_name = first_cam.name if first_cam else "Main Webcam 01"
 
         # 6. Create Database Event
-        event_num = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+        event_num = int(captured_dt.timestamp() * 1000) % 100000
         event_identifier = f"EVT-INTRUSION-{event_num}"
 
         event = Event(
@@ -137,7 +151,7 @@ def capture_real_evidence(
         alert = Alert(
             event_id=event.id,
             severity=event.severity,
-            status="NEW",
+            status=AlertStatus.ACTIVE,
             message=f"CRITICAL: Unauthorized entry by {payload.class_name or 'person'} (Track #{payload.track_id})",
         )
         db.add(alert)
@@ -185,7 +199,7 @@ def capture_real_evidence(
             file_path=evidence.file_path,
             sha256_hash=evidence.sha256_hash,
             image_url=f"/api/v1/evidence/{evidence.id}/image",
-            captured_at=evidence.captured_at,
+            captured_at=captured_dt,
             camera_id=db_camera_id,
             track_id=event.track_id,
             class_name=payload.class_name,
