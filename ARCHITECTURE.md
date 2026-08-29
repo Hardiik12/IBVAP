@@ -59,7 +59,37 @@ IBVAP follows a decoupled, three-tier modular architecture:
 
 ## 2. AI Processing Pipeline Lifecycle
 
-The AI engine executes a continuous frame processing loop:
+### 2.1 Computer Vision Foundation (M2.1 Implemented Baseline)
+
+The `ai/` module provides a decoupled, modular frame-processing pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 CAMERA SOURCE ABSTRACTION                   │
+│ 1. WebcamSource(camera_index)  OR  VideoFileSource(path)   │
+│ 2. BaseCameraSource interface (open, read, release)         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Read BGR numpy array frame
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      FRAME PROCESSOR                        │
+│ 1. Validate Non-Null BGR Array & Positive Dimensions        │
+│ 2. Perform Optional Frame Resizing (target_width, height)  │
+│ 3. Extract FrameMetadata (frame_id, timestamp, width, height)│
+│ 4. Compute Empirical Processing FPS (Sliding Window Timer)  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Processed Frame + Telemetry
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  PIPELINE RUNNER & PREVIEW                  │
+│ 1. Render Diagnostic Telemetry Overlay (FPS, Res, Source)   │
+│ 2. Display Live GUI Preview (cv2.imshow) OR Headless Mode   │
+│ 3. Keyboard Shutdown Handler ('q' / ESC key)                │
+│ 4. Safe Hardware Resource Cleanup (source.release())        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 End-to-End Target AI Pipeline (Future Phases)
 
 ```
 [Frame Capture] 
@@ -161,3 +191,95 @@ Result: VERIFIED (Match)                                Result: TAMPERED (Mismat
 1. **Separation of AI and Business Domain**: YOLO and ByteTrack do not know about database schemas or REST endpoints. They emit pure event data structures.
 2. **Stateless Service Handlers**: Backend service layer methods maintain idempotency and do not hold transient camera state.
 3. **Optimized DB I/O**: Frame detections are processed entirely in-memory; only structured security events, alerts, and evidence metadata are persisted to PostgreSQL.
+
+---
+
+## 6. Real-Time WebSocket Notification Architecture
+
+IBVAP uses an in-process FastAPI WebSocket Connection Manager (`WebSocketManager`) to broadcast real-time security events to operational clients:
+
+```
+[AI Pipeline / Client]
+         │
+         │ HTTP POST /api/v1/events
+         ▼
+┌────────────────────────────────────────────────────────┐
+│                   BACKEND SERVICE                      │
+│ 1. EventService.create_event()                         │
+│ 2. AlertService.create_alert_internal() (if INTRUSION) │
+│ 3. db.commit() ─── Transaction Committed               │
+└────────────────────────┬───────────────────────────────┘
+                         │
+        (Strictly Post-Commit Callback)
+                         │
+                         ▼
+┌────────────────────────────────────────────────────────┐
+│               NOTIFICATION SERVICE                     │
+│ 1. Build JSON Payload (Event + Alert data)             │
+│ 2. WebSocketManager.broadcast(payload)                 │
+└────────────────────────┬───────────────────────────────┘
+                         │
+       ┌─────────────────┴─────────────────┐
+       ▼                                   ▼
+ [Client 1: OPERATOR]               [Client 2: ANALYST]
+  WS /api/v1/ws/events               WS /api/v1/ws/events
+```
+
+### Architectural Directives
+- **Post-Commit Guarantee**: Notifications trigger **only after database commit succeeds**, ensuring clients never receive phantom alerts for rolled-back transactions.
+- **Database = Source of Truth**: WebSockets provide real-time ephemeral notifications. Historical state and missed messages during disconnections are fetched via REST APIs (`GET /api/v1/events` and `GET /api/v1/alerts`).
+- **Query-Token Authentication**: WebSockets require `WS /api/v1/ws/events?token=<access_token>`. Invalid or expired tokens are closed immediately with code `1008` (Policy Violation).
+
+---
+
+## 7. End-to-End Integration Flow & Security Control Mapping
+
+### 7.1 Cross-Component Data Lifecycle
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                       AI SIMULATOR / M2 PIPELINE                          │
+│ 1. Authenticate via POST /api/v1/auth/login -> Receive JWT Token          │
+│ 2. Construct Normalized Event JSON (camera_id, zone_id, track_id, etc.)  │
+└─────────────────────────────────────┬─────────────────────────────────────┘
+                                      │ HTTP POST /api/v1/events
+                                      ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           M1 BACKEND SERVER                               │
+│ 1. Validate JWT & Role Permissions (OPERATOR / ADMIN)                     │
+│ 2. Validate Camera & Zone Existence + Camera/Zone Parent Relationship     │
+│ 3. Atomic Transaction: Event Record Created + Alert Record Generated      │
+│ 4. db.commit() ─── Transaction Committed                                  │
+│ 5. Post-Commit Hook: NotificationService.notify_event_created()           │
+└───────────────────┬───────────────────────────────────┬───────────────────┘
+                    │ Broadcast                         │ Metadata
+                    ▼                                   ▼
+┌──────────────────────────────────────┐    ┌───────────────────────────────┐
+│       WEBSOCKET BROADCASTER          │    │     EVIDENCE INTEGRITY        │
+│ WS /api/v1/ws/events?token=<JWT>     │    │ 1. Store frame snapshot       │
+│ Delivers real-time INTRUSION_ALERT   │    │ 2. Generate SHA-256 hash      │
+│ JSON payload to active clients       │    │ 3. Verify integrity (VERIFIED)│
+└──────────────────────────────────────┘    │ 4. Flag mutation (MISMATCH)   │
+                                            └───────────────┬───────────────┘
+                                                            │ Action Logged
+                                                            ▼
+                                            ┌───────────────────────────────┐
+                                            │         AUDIT TRAIL           │
+                                            │ Immutable AuditLog table      │
+                                            │ tracks LOGIN, CAMERA, ZONE,   │
+                                            │ ALERT_ACK, EVIDENCE_VERIFIED  │
+                                            └───────────────────────────────┘
+```
+
+### 7.2 Security Architecture Mapping Matrix
+
+| Security Layer / Control | Status | Implemented Mechanism (M1 MVP) | Proposed / Production Target |
+| :--- | :--- | :--- | :--- |
+| **Layer 1: Audit Logging** | **IMPLEMENTED** | Immutable `AuditLog` table, read-only endpoint, DELETE returns 405. | Centralized SIEM forwarding, syslog export. |
+| **Layer 2: Evidence Integrity** | **IMPLEMENTED** | Server-side SHA-256 chunked hashing, directory traversal block, mismatch detection. | Hardware Security Module (HSM), digital signature certificates. |
+| **Layer 3: Encryption** | **PROPOSED** | HTTP / WS (Development). | Mandatory HTTPS (TLS 1.3), WSS, AES-256 evidence disk encryption. |
+| **Layer 4: Network Isolation** | **PROPOSED** | Localhost / docker network. | Air-gapped border network, VPC segmentation, firewall rules. |
+| **Layer 5: Identity & Access** | **IMPLEMENTED** | Argon2id password hashing, JWT Bearer tokens, RBAC permissions matrix. | Multi-Factor Authentication (MFA), OAuth2 / OIDC SSO integration. |
+| **Layer 6: System Hardening** | **IMPLEMENTED** | Path traversal protection, strict Pydantic `extra="forbid"`, admin self-deactivation block. | SELinux profiles, container vulnerability scanning, VAPT certification. |
+
+

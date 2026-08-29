@@ -32,7 +32,7 @@
 | Technology | Selection | Rationale / Tradeoff Analysis |
 | :--- | :--- | :--- |
 | **Language** | Python 3.11 | De facto standard for computer vision; native bindings for OpenCV, PyTorch, NumPy. High developer velocity for ML integration. |
-| **Frame Ingestion** | OpenCV (`opencv-python`) | Provides high-performance, low-level camera frame reading from webcams, USB cameras, and video files. Cross-platform support. |
+| **Frame Ingestion** | OpenCV (`opencv-python`) | Implemented in M2.1. High-performance camera frame reading from webcams, USB cameras, and video files with telemetry overlays and headless execution support. |
 | **Object Detection** | Ultralytics YOLOv8 (v8n) | Lightweight, single-stage anchor-free detector delivering state-of-the-art accuracy/speed balance for real-time edge processing (> 30 FPS on standard CPUs). |
 | **Multi-Object Tracking** | ByteTrack | Association algorithm that utilizes low-score detection boxes alongside high-score boxes, dramatically improving tracking continuity and reducing ID switches during partial occlusions. |
 | **Spatial Engine** | OpenCV & NumPy | Enables robust, mathematical point-in-polygon (`cv2.pointPolygonTest`) spatial testing with negligible computational overhead (< 1ms per track) and zero extra dependencies. |
