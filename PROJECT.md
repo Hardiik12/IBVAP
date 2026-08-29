@@ -131,7 +131,7 @@ Ultralytics YOLO Detector
   ↓ Normalized Detections List
 ByteTrack Multi-Object Tracker
   ↓ Persistent Tracks List
-Zone Engine (Shapely/PIP)
+Zone Engine (OpenCV PIP)
   ↓ Spatial Containment Status
 Event Engine (State Machine)
   ↓ Intrusion Event Payload
@@ -143,7 +143,7 @@ Backend Dispatch
 - **OpenCV (`opencv-python`)**
 - **Ultralytics YOLOv8** (YOLOv8n / YOLOv8s)
 - **ByteTrack** (`lap` + `scipy` assignment)
-- **NumPy** & **Shapely**
+- **NumPy** & **OpenCV pointPolygonTest**
 
 ---
 
@@ -272,7 +272,7 @@ Events trigger alerts pushed to the dashboard over WebSockets (`ws://localhost:8
 ```
 
 ### Technology Stack
-- **AI/CV**: Python 3.11, OpenCV, Ultralytics YOLOv8, ByteTrack, NumPy, Shapely
+- **AI/CV**: Python 3.11, OpenCV, Ultralytics YOLOv8, ByteTrack, NumPy
 - **Backend**: FastAPI, Uvicorn, PostgreSQL, SQLAlchemy ORM, Alembic, Pydantic, Python-jose (JWT), Passlib
 - **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide React, HTML5 Canvas Overlay
 
@@ -371,7 +371,7 @@ Primary Relational Entities:
 - **Phase 1**: Camera Ingestion (`CameraSource` → OpenCV)
 - **Phase 2**: Object Detection Integration (YOLOv8)
 - **Phase 3**: Multi-Object Tracking Integration (ByteTrack)
-- **Phase 4**: Virtual Polygon Zone Engine (Shapely / PIP)
+- **Phase 4**: Virtual Polygon Zone Engine (OpenCV / PIP)
 - **Phase 5**: Intrusion Event Engine (State Machine)
 - **Phase 6**: Alert Engine & WebSocket Broadcast
 - **Phase 7**: Evidence Snapshot Capture Engine

@@ -5,9 +5,16 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from ai.camera.base import CameraSource
 from ai.camera.file import VideoFileSource
 from ai.camera.synthetic import SyntheticSource
 from ai.camera.webcam import WebcamSource
+
+
+def test_camera_source_is_abstract() -> None:
+    """Verify that CameraSource cannot be directly instantiated."""
+    with pytest.raises(TypeError, match="Can't instantiate abstract class"):
+        CameraSource(camera_id="test", name="Abstract Camera")  # type: ignore[abstract]
 
 
 def test_webcam_source_open_and_read() -> None:
@@ -41,19 +48,75 @@ def test_webcam_source_failed_open() -> None:
             source.open()
 
 
+def test_webcam_source_read_failure() -> None:
+    with patch("ai.camera.webcam.cv2.VideoCapture") as mock_cap_class:
+        mock_cap = MagicMock()
+        mock_cap.isOpened.return_value = True
+        mock_cap.read.return_value = (False, None)
+        mock_cap_class.return_value = mock_cap
+
+        source = WebcamSource(camera_index=0)
+        source.open()
+        ok, frame = source.read_frame()
+        assert ok is False
+        assert frame is None
+        source.release()
+        mock_cap.release.assert_called_once()
+
+
 def test_video_file_source_not_found() -> None:
     source = VideoFileSource(file_path="/non/existent/video.mp4")
     with pytest.raises(FileNotFoundError):
         source.open()
 
 
-def test_video_file_source_read_and_loop() -> None:
+def test_video_file_source_failed_to_open() -> None:
+    with patch("os.path.exists", return_value=True):
+        with patch("ai.camera.file.cv2.VideoCapture") as mock_cap_class:
+            mock_cap = MagicMock()
+            mock_cap.isOpened.return_value = False
+            mock_cap_class.return_value = mock_cap
+
+            source = VideoFileSource(file_path="corrupt.mp4")
+            with pytest.raises(RuntimeError, match="Could not open video file"):
+                source.open()
+
+
+def test_video_file_source_eof_returns_false_none() -> None:
+    """Verify that at EOF, read_frame() returns (False, None) without looping."""
     with patch("os.path.exists", return_value=True):
         with patch("ai.camera.file.cv2.VideoCapture") as mock_cap_class:
             mock_cap = MagicMock()
             mock_cap.isOpened.return_value = True
 
-            # Return a valid frame, then EOF (False), then loop (True)
+            dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+            # Frame 1: valid, Frame 2: EOF
+            mock_cap.read.side_effect = [(True, dummy), (False, None)]
+            mock_cap_class.return_value = mock_cap
+
+            source = VideoFileSource(file_path="test.mp4", loop=False)
+            source.open()
+
+            # Read frame 1
+            ok1, f1 = source.read_frame()
+            assert ok1 is True
+            assert f1 is not None
+
+            # Read frame 2 (EOF)
+            ok2, f2 = source.read_frame()
+            assert ok2 is False
+            assert f2 is None
+
+            source.release()
+            mock_cap.release.assert_called_once()
+
+
+def test_video_file_source_looping() -> None:
+    with patch("os.path.exists", return_value=True):
+        with patch("ai.camera.file.cv2.VideoCapture") as mock_cap_class:
+            mock_cap = MagicMock()
+            mock_cap.isOpened.return_value = True
+
             dummy = np.zeros((480, 640, 3), dtype=np.uint8)
             mock_cap.read.side_effect = [(True, dummy), (False, None), (True, dummy)]
             mock_cap_class.return_value = mock_cap
@@ -61,17 +124,14 @@ def test_video_file_source_read_and_loop() -> None:
             source = VideoFileSource(file_path="dummy.mp4", loop=True)
             source.open()
 
-            # Frame 1: valid
             ok1, f1 = source.read_frame()
             assert ok1 is True
 
-            # Frame 2: EOF triggered -> rewound to frame 0 -> returns valid frame
             ok2, f2 = source.read_frame()
             assert ok2 is True
-            mock_cap.set.assert_called_with(1, 0)  # CAP_PROP_POS_FRAMES = 1
+            mock_cap.set.assert_called_with(1, 0)
 
             source.release()
-            mock_cap.release.assert_called_once()
 
 
 def test_synthetic_source_iteration() -> None:

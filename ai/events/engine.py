@@ -1,4 +1,16 @@
-"""Intrusion Event Engine for state transition evaluation and alert generation."""
+"""
+Intrusion Event Engine for state transition evaluation and alert generation.
+
+M2 Ownership Scope:
+- Evaluates OUTSIDE -> INSIDE state transitions per tracked object.
+- Suppresses duplicate alert spam while subject remains INSIDE (ADR-007).
+- Resets tracking state upon INSIDE -> OUTSIDE transition.
+- Emits standardized EventPayload instances to downstream consumers.
+
+Downstream Handlers (M5 / Phase 7 & 8):
+- Evidence file persistence to disk, SHA-256 hash digest calculation,
+  and database storage are handled downstream by M5 services.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +28,13 @@ from ai.zones.schemas import ZoneState
 
 
 def encode_frame_to_base64(frame: np.ndarray, quality: int = 85) -> str:
-    """Encode an OpenCV BGR frame into a base64 JPEG string."""
+    """
+    Encode an OpenCV BGR frame into a base64 JPEG string.
+
+    Transport Helper: Provides in-memory JPEG string for optional inclusion in
+    the event payload. Evidence file writing to disk and cryptographic SHA-256
+    integrity verification are performed downstream by M5 (Phase 7 & 8).
+    """
     encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
     success, buffer = cv2.imencode(".jpg", frame, encode_params)
     if not success:
@@ -28,16 +46,19 @@ class IntrusionEventEngine:
     """
     Evaluates track state transitions across virtual zones and generates security events.
 
-    Complies with ADR-007: Evaluates OUTSIDE -> INSIDE state transitions per track ID,
-    triggering events on the positive edge while suppressing duplicate spam while the
-    subject remains inside.
+    Duplicate Suppression (ADR-007):
+    - Evaluates OUTSIDE -> INSIDE state transitions per (zone_id, track_id).
+    - Emits exactly ONE event upon the initial entry edge (positive transition).
+    - Consecutive INSIDE -> INSIDE evaluations produce 0 duplicate events.
+    - An INSIDE -> OUTSIDE transition resets the state to OUTSIDE, enabling
+      a new event if the subject exits and re-enters.
     """
 
     def __init__(self, default_camera_id: str = "cam-01") -> None:
         self.default_camera_id = default_camera_id
         # Key: (zone_id, track_id) -> ZoneState
         self._track_states: dict[tuple[str, int], ZoneState] = {}
-        # Key: (zone_id, track_id) -> last seen timestamp in epoch seconds
+        # Key: (zone_id, track_id) -> last seen timestamp in epoch seconds (for stale track cleanup)
         self._last_seen: dict[tuple[str, int], float] = {}
 
     def _determine_severity(self, class_name: str) -> str:

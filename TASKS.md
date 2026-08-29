@@ -62,7 +62,7 @@ Phase 11: Presentation & Demo Polish ────────────► Tar
 ### Phase 4 — Virtual Polygon Zone Engine (`ai/zones`)
 - **Owner**: M2 (AI/ML Lead)
 - [x] Implement spatial point math for bounding box (bottom-center coordinate).
-- [x] Implement Shapely point-in-polygon containment test against polygon coordinates.
+- [x] Implement OpenCV point-in-polygon (cv2.pointPolygonTest) containment test against polygon coordinates.
 - **Acceptance Criteria**: Engine correctly classifies point as `INSIDE` or `OUTSIDE` polygon zone.
 
 ### Phase 5 — Intrusion Event Engine (`ai/events`)

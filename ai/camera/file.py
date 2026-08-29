@@ -18,7 +18,7 @@ class VideoFileSource(CameraSource):
         file_path: str,
         camera_id: str = "file-cam-01",
         name: str = "Video File Source",
-        loop: bool = True,
+        loop: bool = False,
     ) -> None:
         super().__init__(camera_id=camera_id, name=name)
         self.file_path = file_path
