@@ -6,6 +6,7 @@ import { Badge } from "../ui/Badge";
 import { formatTimeAgo } from "../../utils/formatters";
 import { FileSearch, CheckCircle2 } from "lucide-react";
 import { useAlerts } from "../../hooks/useAlerts";
+import { useAuth } from "../../context/AuthContext";
 
 interface AlertItemProps {
   alert: AlertState;
@@ -13,7 +14,10 @@ interface AlertItemProps {
 
 export const AlertItem: React.FC<AlertItemProps> = ({ alert }) => {
   const { markAsRead, openEvidenceModal } = useAlerts();
+  const { hasRole } = useAuth();
   const [, setTick] = useState(0);
+
+  const canAck = hasRole(["ADMINISTRATOR", "OPERATOR"]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -59,14 +63,18 @@ export const AlertItem: React.FC<AlertItemProps> = ({ alert }) => {
         </button>
 
         {!alert.isRead ? (
-          <button
-            onClick={() => markAsRead(alert.alert_id)}
-            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 font-mono transition"
-            title="Mark as Acknowledged"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Ack</span>
-          </button>
+          canAck ? (
+            <button
+              onClick={() => markAsRead(alert.alert_id)}
+              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 font-mono transition"
+              title="Mark as Acknowledged"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Ack</span>
+            </button>
+          ) : (
+            <span className="text-[10px] font-mono text-amber-500/70">PENDING ACK</span>
+          )
         ) : (
           <span className="text-[10px] font-mono text-slate-500">ACKNOWLEDGED</span>
         )}

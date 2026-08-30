@@ -22,7 +22,7 @@ import { useAuth } from "../../context/AuthContext";
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { unreadCount } = useAlerts();
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const navigation = [
@@ -35,9 +35,19 @@ export const Sidebar: React.FC = () => {
     },
     { name: "Events", href: "/events", icon: ListOrdered },
     { name: "Evidence Vault", href: "/evidence", icon: FileCheck2 },
-    { name: "Audit Trail", href: "/audit-logs", icon: History },
-    { name: "Cameras", href: "/cameras", icon: Video },
-  ];
+    {
+      name: "Audit Trail",
+      href: "/audit-logs",
+      icon: History,
+      allowedRoles: ["ADMINISTRATOR", "AUDITOR"],
+    },
+    {
+      name: "Cameras",
+      href: "/cameras",
+      icon: Video,
+      allowedRoles: ["ADMINISTRATOR", "OPERATOR", "ANALYST"],
+    },
+  ].filter((item) => !item.allowedRoles || hasRole(item.allowedRoles));
 
   return (
     <aside

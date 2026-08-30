@@ -43,6 +43,10 @@ export function CameraProvider({ children }: { children: React.ReactNode }) {
         const activeZones = await cameraService.getCameraZones(active.id);
         setZones(activeZones);
       }
+    } catch {
+      // Role does not have camera view permissions (e.g. AUDITOR) or backend offline
+      setCameras([]);
+      setZones([]);
     } finally {
       setIsLoading(false);
     }

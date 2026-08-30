@@ -29,6 +29,7 @@ dist/
 # Evidence & Media (preserve placeholder gitkeeps)
 data/evidence/*
 !data/evidence/.gitkeep
+backend/data/
 data/videos/live-demo/*
 !data/videos/live-demo/.gitkeep
 data/videos/test/*

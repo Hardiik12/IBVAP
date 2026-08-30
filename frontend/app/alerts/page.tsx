@@ -2,13 +2,17 @@
 
 import React, { useState } from "react";
 import { useAlerts } from "../../hooks/useAlerts";
+import { useAuth } from "../../context/AuthContext";
 import { AlertItem } from "../../components/alerts/AlertItem";
 import { Bell, CheckCheck, Trash2, ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 
 export default function AlertsPage() {
+  const { hasRole } = useAuth();
   const { alerts, unreadCount, markAllAsRead, clearAlerts } = useAlerts();
   const [filterSeverity, setFilterSeverity] = useState<string>("");
+
+  const canManageAlerts = hasRole(["ADMINISTRATOR", "OPERATOR"]);
 
   const filteredAlerts = alerts.filter((a) => {
     if (filterSeverity && a.severity !== filterSeverity) return false;
@@ -30,7 +34,7 @@ export default function AlertsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
+          {canManageAlerts && unreadCount > 0 && (
             <Button
               variant="secondary"
               size="sm"
@@ -41,7 +45,7 @@ export default function AlertsPage() {
             </Button>
           )}
 
-          {alerts.length > 0 && (
+          {canManageAlerts && alerts.length > 0 && (
             <Button
               variant="outline"
               size="sm"

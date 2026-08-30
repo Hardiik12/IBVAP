@@ -26,9 +26,13 @@ export default function AuditLogsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState<string>("");
 
-  const isAuthorized = hasRole(["ADMINISTRATOR", "AUDITOR", "OPERATOR", "ANALYST"]);
+  const isAuthorized = hasRole(["ADMINISTRATOR", "AUDITOR"]);
 
   const loadAuditLogs = useCallback(async () => {
+    if (!isAuthorized) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -42,7 +46,7 @@ export default function AuditLogsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [actionFilter]);
+  }, [actionFilter, isAuthorized]);
 
   useEffect(() => {
     loadAuditLogs();
@@ -55,6 +59,27 @@ export default function AuditLogsPage() {
     if (action.includes("ALERT") || action.includes("EVENT")) return "bg-amber-950/70 text-amber-300 border-amber-800";
     return "bg-surface-300 text-slate-300 border-surface-border";
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-4xl font-mono">
+        <div className="bg-surface-200 border border-red-800/60 rounded-xl p-8 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-red-950/80 border border-red-700/80 flex items-center justify-center text-red-400 mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-100">ACCESS RESTRICTED — RBAC GATED</h2>
+            <p className="text-xs text-slate-400 mt-1 font-sans max-w-md mx-auto">
+              System Audit Logs are restricted to <strong>ADMINISTRATOR</strong> and <strong>AUDITOR</strong> roles in compliance with forensic chain-of-custody protocols.
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono">
+            Current Authenticated Role: <span className="text-amber-400 font-bold">{user?.role || "UNKNOWN"}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-6xl font-mono">
