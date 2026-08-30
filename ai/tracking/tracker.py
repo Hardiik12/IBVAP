@@ -5,9 +5,15 @@ from __future__ import annotations
 import os
 
 import numpy as np
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None  # type: ignore
 
 from ai.tracking.schemas import Track
+from ai.detection.detector import compute_file_sha256
+from ai.core.config import ai_settings
 
 DEFAULT_MODEL = os.getenv("YOLO_MODEL", "yolov8n.pt")
 DEFAULT_TRACKER = os.getenv("TRACKER_CONFIG", "bytetrack.yaml")
@@ -23,8 +29,31 @@ class ByteTracker:
         tracker_config: str = DEFAULT_TRACKER,
         confidence_threshold: float = DEFAULT_CONFIDENCE,
         target_classes: set[int] | None = None,
+        expected_sha256: str | None = None,
     ) -> None:
+        if YOLO is None:
+            raise RuntimeError("Ultralytics package is not installed.")
+
         self.model = YOLO(model_path)
+
+        # Verify model file integrity if expected SHA-256 is configured
+        sha_to_check = expected_sha256 or ai_settings.MODEL_SHA256
+        if sha_to_check:
+            weights_file = getattr(self.model, "ckpt_path", model_path)
+            if not os.path.isfile(str(weights_file)):
+                weights_file = model_path
+            if os.path.isfile(str(weights_file)):
+                actual_sha = compute_file_sha256(str(weights_file))
+                if actual_sha.lower() != sha_to_check.lower():
+                    raise RuntimeError(
+                        f"Model integrity verification failed for '{weights_file}'. "
+                        f"Expected SHA-256: {sha_to_check}, got: {actual_sha}."
+                    )
+            else:
+                raise RuntimeError(f"Model file '{model_path}' not found for integrity verification.")
+
+
+
         self.tracker_config = tracker_config
         self.confidence_threshold = confidence_threshold
 

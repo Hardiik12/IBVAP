@@ -3,9 +3,33 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import torch
+
+try:
+    import torch
+except ImportError:
+    class MockTensor:
+        def __init__(self, val):
+            self._val = val
+        def cpu(self):
+            return self
+        def tolist(self):
+            return self._val if isinstance(self._val, list) else [self._val]
+        def item(self):
+            return self._val
+        def __int__(self):
+            return int(self._val)
+        def __float__(self):
+            return float(self._val)
+
+    class TorchMock:
+        @staticmethod
+        def tensor(val):
+            return MockTensor(val)
+
+    torch = TorchMock()  # type: ignore
 
 from ai.detection.detector import YOLODetector
+
 
 
 def test_detector_initialization_defaults() -> None:

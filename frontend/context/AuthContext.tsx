@@ -21,6 +21,8 @@ interface AuthContextType {
   verifyFace: (imageBase64: string, livenessCompleted?: boolean) => Promise<void>;
   enrollFace: (imagesBase64: string[]) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  hasRole: (allowedRoles: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -225,6 +227,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const hasRole = (allowedRoles: string[]) => {
+    if (!user) return false;
+    return allowedRoles.includes(user.role);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const refreshed = await authService.getMe();
+      setUser(refreshed);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -243,6 +259,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         verifyFace,
         enrollFace,
         logout,
+        refreshUser,
+        hasRole,
       }}
     >
       {children}

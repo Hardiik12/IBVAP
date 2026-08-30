@@ -6,16 +6,26 @@ import { healthService } from "../services/healthService";
 
 export function useHealthCheck(pollIntervalMs = 5000) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [isHealthy, setIsHealthy] = useState(true);
+  const [isHealthy, setIsHealthy] = useState(false);
 
   const check = useCallback(async () => {
-    const data = await healthService.getHealth();
-    setHealth(data);
-    setIsHealthy(
-      data.status === "healthy" &&
-      (data.database === "connected" || !data.database)
-    );
-
+    try {
+      const data = await healthService.getHealth();
+      setHealth(data);
+      const isOk =
+        (data.status === "healthy" || data.status === "ok") &&
+        (data.database === "connected" || !data.database);
+      setIsHealthy(isOk);
+    } catch {
+      setHealth({
+        status: "offline",
+        service: "IBVAP Backend",
+        version: "offline",
+        database: "disconnected",
+        timestamp: new Date().toISOString(),
+      });
+      setIsHealthy(false);
+    }
   }, []);
 
   useEffect(() => {

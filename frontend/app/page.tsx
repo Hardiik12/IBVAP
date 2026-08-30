@@ -6,29 +6,22 @@ import { TacticalStack } from "../components/alerts/TacticalStack";
 import { TacticalFooter } from "../components/layout/TacticalFooter";
 import { useCameraContext } from "../context/CameraContext";
 import { useAlerts } from "../hooks/useAlerts";
-import { useWebSocket } from "../hooks/useWebSocket";
 import { eventService } from "../services/eventService";
 import { IntrusionEvent } from "../types/event";
-import { formatDate } from "../utils/formatters";
-import { ShieldAlert, FileSearch } from "lucide-react";
-import { Badge } from "../components/ui/Badge";
 
 export default function DashboardPage() {
   const { zones } = useCameraContext();
-  const { alerts, addAlert, openEvidenceModal } = useAlerts();
-  const [recentEvents, setRecentEvents] = useState<IntrusionEvent[]>([]);
-
-  // Connect WebSocket with automatic mock simulation fallback
-  const { isConnected, triggerTestAlert } = useWebSocket({
-    onMessage: (msg) => {
-      addAlert(msg);
-    },
-  });
+  const { alerts } = useAlerts();
+  const [, setRecentEvents] = useState<IntrusionEvent[]>([]);
 
   useEffect(() => {
     const loadEvents = async () => {
-      const data = await eventService.getEvents({ limit: 4 });
-      setRecentEvents(data.slice(0, 4));
+      try {
+        const data = await eventService.getEvents({ limit: 4 });
+        setRecentEvents(data.slice(0, 4));
+      } catch {
+        // Backend offline or unauthenticated
+      }
     };
     loadEvents();
   }, [alerts]);
@@ -65,7 +58,6 @@ export default function DashboardPage() {
           <TacticalStack />
         </div>
       </div>
-
 
       {/* Footer Status Bar (4-Column Status Grid) */}
       <TacticalFooter />

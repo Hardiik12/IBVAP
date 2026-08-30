@@ -14,31 +14,37 @@ class EvidenceIntegrityService:
     def resolve_path_safely(file_path: str) -> Path:
         """
         Resolves a relative file path against the configured evidence root directory
-        and prevents directory traversal attacks.
+        and strictly prevents directory traversal, null-byte injection, and escapes.
         """
+        if not file_path or "\0" in file_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file path"
+            )
+
+        if file_path.startswith("/") or file_path.startswith("\\"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path traversal attempt detected"
+            )
+
         base_root = Path(settings.EVIDENCE_ROOT).resolve()
         base_root.mkdir(parents=True, exist_ok=True)
 
-        if Path(file_path).is_absolute():
-            target = Path(file_path).resolve()
-        else:
-            clean_rel = file_path
-            if clean_rel.startswith("data/evidence/"):
-                clean_rel = clean_rel[len("data/evidence/") :]
-            elif clean_rel.startswith("data/"):
-                clean_rel = clean_rel[len("data/") :]
-            elif clean_rel.startswith("evidence/"):
-                clean_rel = clean_rel[len("evidence/") :]
+        clean_rel = file_path
+        if clean_rel.startswith("data/evidence/"):
+            clean_rel = clean_rel[len("data/evidence/") :]
+        elif clean_rel.startswith("data/"):
+            clean_rel = clean_rel[len("data/") :]
+        elif clean_rel.startswith("evidence/"):
+            clean_rel = clean_rel[len("evidence/") :]
 
-            target = (base_root / clean_rel).resolve()
+        target = Path(base_root / clean_rel).resolve()
 
-        # Enforce sandbox: ensure target is strictly inside base_root
-        try:
-            target.relative_to(base_root)
-        except ValueError:
+        if not target.is_relative_to(base_root):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Path traversal attempt detected",
+                detail="Path traversal attempt detected"
             )
 
         return target
@@ -80,7 +86,7 @@ class EvidenceIntegrityService:
         if not target_path.exists() or not target_path.is_file():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evidence file not found on disk",
+                detail=f"Evidence file not found on disk: '{evidence.file_path}'",
             )
 
         # Calculate and persist hash in transaction
@@ -112,7 +118,7 @@ class EvidenceIntegrityService:
         if not target_path.exists() or not target_path.is_file():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Evidence file not found on disk",
+                detail=f"Evidence file not found on disk: '{evidence.file_path}'",
             )
 
         current_hash = EvidenceIntegrityService.calculate_sha256(target_path)

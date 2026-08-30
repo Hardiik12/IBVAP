@@ -2,8 +2,6 @@ import base64
 import time
 import logging
 from typing import Optional, Tuple
-import cv2
-import numpy as np
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.detection import (
@@ -36,12 +34,24 @@ def get_ai_tracker():
             logger.info("Initialized shared ByteTracker instance with YOLOv8n.")
         except Exception as e:
             logger.error(f"Failed to initialize ByteTracker: {e}")
-            raise e
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"AI Detection engine not available: {e}"
+            )
     return _tracker_instance
 
 
-def decode_base64_image(image_data: str) -> Tuple[np.ndarray, int, int]:
+def decode_base64_image(image_data: str) -> Tuple[any, int, int]:
     """Decode base64 string or data URL to OpenCV BGR numpy array."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenCV (cv2) or NumPy is not installed on this instance."
+        )
+
     try:
         if "," in image_data:
             image_data = image_data.split(",", 1)[1]
@@ -66,13 +76,35 @@ def check_point_in_normalized_polygon(
     point: Tuple[float, float],
     polygon: list[list[float]],
 ) -> bool:
-    """Evaluate point-in-polygon containment using OpenCV pointPolygonTest."""
-    if len(polygon) < 3:
-        return False
-    poly_np = np.array(polygon, dtype=np.float32)
-    pt_x, pt_y = point
-    result = cv2.pointPolygonTest(poly_np, (float(pt_x), float(pt_y)), measureDist=False)
-    return result >= 0
+    """Evaluate point-in-polygon containment using ray casting or OpenCV pointPolygonTest."""
+    try:
+        import cv2
+        import numpy as np
+        if len(polygon) < 3:
+            return False
+        poly_np = np.array(polygon, dtype=np.float32)
+        pt_x, pt_y = point
+        result = cv2.pointPolygonTest(poly_np, (float(pt_x), float(pt_y)), measureDist=False)
+        return result >= 0
+    except ImportError:
+        # Pure Python Ray-Casting algorithm fallback
+        if len(polygon) < 3:
+            return False
+        x, y = point
+        n = len(polygon)
+        inside = False
+        p1x, p1y = polygon[0]
+        for i in range(1, n + 1):
+            p2x, p2y = polygon[i % n]
+            if y > min(p1y, p2y):
+                if y <= max(p1y, p2y):
+                    if x <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+        return inside
 
 
 @router.post("/detect", response_model=DetectionResponse)

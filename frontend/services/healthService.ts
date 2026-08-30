@@ -1,16 +1,16 @@
 import { fetchApi } from "./apiClient";
 import { HealthResponse } from "../types/health";
-import { MOCK_HEALTH } from "./mockData";
 
 export const healthService = {
   async getHealth(): Promise<HealthResponse> {
     try {
-      return await fetchApi<HealthResponse>("/health", { timeoutMs: 2500 });
+      return await fetchApi<HealthResponse>("/health", { timeoutMs: 2500, skipAuth: true });
     } catch {
       return {
-        ...MOCK_HEALTH,
-        status: "healthy",
-        database: "connected",
+        status: "offline",
+        service: "IBVAP Backend",
+        version: "offline",
+        database: "disconnected",
         timestamp: new Date().toISOString(),
       };
     }

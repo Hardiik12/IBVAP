@@ -26,15 +26,16 @@ class CurrentUserResponse(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    face_verification_required: bool = True
-    face_enrolled: bool = False
-    temp_token: str
-    temp_token_expires_in: int = 300
-    username: str
-    role: UserRole
+    face_verification_required: Optional[bool] = False
+    face_enrolled: Optional[bool] = False
+    temp_token: Optional[str] = None
     mfa_required: bool = True
     mfa_setup_required: bool = False
     mfa_token: Optional[str] = None
+    access_token: Optional[str] = None
+    temp_token_expires_in: int = 300  # 5 minutes
+    username: str
+    role: UserRole
 
 
 class FaceVerificationRequest(BaseModel):
@@ -70,6 +71,7 @@ class FaceEnrollmentResponse(BaseModel):
     mfa_setup_required: bool = False
     username: Optional[str] = None
     user: Optional[CurrentUserResponse] = None
+
 
 
 class MfaSetupResponse(BaseModel):

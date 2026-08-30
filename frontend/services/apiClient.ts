@@ -1,8 +1,16 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+/**
+ * IBVAP Centralized Authenticated REST Client
+ * Automatically normalizes API base path to /api/v1 and injects Bearer JWT.
+ */
 
-interface RequestOptions extends RequestInit {
-  timeoutMs?: number;
-}
+const getApiBaseUrl = (): string => {
+  let base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  if (base.endsWith("/")) base = base.slice(0, -1);
+  if (!base.endsWith("/api/v1")) {
+    base = `${base}/api/v1`;
+  }
+  return base;
+};
 
 export class ApiError extends Error {
   status: number;
@@ -16,54 +24,85 @@ export class ApiError extends Error {
   }
 }
 
+export interface RequestOptions extends RequestInit {
+  timeoutMs?: number;
+  skipAuth?: boolean;
+}
+
 export async function fetchApi<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { timeoutMs = 8000, ...fetchOptions } = options;
+  const { timeoutMs = 8000, skipAuth = false, ...fetchOptions } = options;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  const base = getApiBaseUrl();
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = `${base}${cleanEndpoint}`;
 
-  // Automatically attach auth token if present
-  let authHeader: Record<string, string> = {};
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("ibvap_access_token");
-    if (token) {
-      authHeader["Authorization"] = `Bearer ${token}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+
+  // Inject JWT Bearer Token if available and not skipped
+  if (!skipAuth && typeof window !== "undefined") {
+    const token = localStorage.getItem("ibvap_token") || localStorage.getItem("ibvap_access_token");
+    if (token && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
   }
 
   try {
     const response = await fetch(url, {
       ...fetchOptions,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...authHeader,
-        ...fetchOptions.headers,
-      },
+      headers,
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      let errorData;
+      let errorData: any;
       try {
         errorData = await response.json();
       } catch {
         errorData = { detail: response.statusText };
       }
-      throw new ApiError(
-        errorData?.error?.message || errorData?.detail?.message || errorData?.detail || `API Error: ${response.status}`,
-        response.status,
-        errorData
-      );
+
+      // Handle 401 Unauthorized globally
+      if (response.status === 401 && typeof window !== "undefined") {
+        const isLoginReq = cleanEndpoint.includes("/auth/login") || cleanEndpoint.includes("/auth/mfa");
+        if (!isLoginReq) {
+          localStorage.removeItem("ibvap_token");
+          localStorage.removeItem("ibvap_access_token");
+          localStorage.removeItem("ibvap_user");
+          if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/mfa")) {
+            window.location.href = "/login";
+          }
+        }
+      }
+
+      const errorMessage =
+        errorData?.error?.message ||
+        errorData?.detail?.message ||
+        errorData?.detail ||
+        `HTTP ${response.status}: ${response.statusText}`;
+
+      throw new ApiError(errorMessage, response.status, errorData);
+    }
+
+    // Return empty object on 204 No Content
+    if (response.status === 204) {
+      return {} as T;
     }
 
     return (await response.json()) as T;
   } catch (error: any) {
     clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new ApiError("Request timed out", 408);
+    }
     throw error;
   }
 }

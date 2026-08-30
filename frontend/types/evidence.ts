@@ -1,4 +1,4 @@
-export type VerifyStatus = "VERIFIED" | "TAMPERED" | "UNKNOWN" | "PENDING";
+export type VerifyStatus = "VERIFIED" | "MISMATCH" | "TAMPERED" | "UNKNOWN" | "PENDING" | "NOT_HASHED";
 
 export interface EvidenceRecord {
   evidence_id: string;
@@ -14,9 +14,10 @@ export interface EvidenceRecord {
 
 export interface VerifyResponse {
   evidence_id: string;
-  stored_hash: string;
-  current_hash: string;
-  status: "VERIFIED" | "TAMPERED";
-  match: boolean;
-  verified_at: string;
+  stored_hash?: string | null;
+  current_hash?: string | null;
+  status: string;
+  verified?: boolean;
+  match?: boolean;
+  verified_at?: string;
 }

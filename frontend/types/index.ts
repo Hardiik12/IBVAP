@@ -4,3 +4,6 @@ export * from "./event";
 export * from "./alert";
 export * from "./evidence";
 export * from "./health";
+export * from "./auth";
+export * from "./audit";
+

@@ -282,4 +282,44 @@ IBVAP uses an in-process FastAPI WebSocket Connection Manager (`WebSocketManager
 | **Layer 5: Identity & Access** | **IMPLEMENTED** | Argon2id password hashing, JWT Bearer tokens, RBAC permissions matrix. | Multi-Factor Authentication (MFA), OAuth2 / OIDC SSO integration. |
 | **Layer 6: System Hardening** | **IMPLEMENTED** | Path traversal protection, strict Pydantic `extra="forbid"`, admin self-deactivation block. | SELinux profiles, container vulnerability scanning, VAPT certification. |
 
+---
+
+## 8. Docker Compose Deployment Architecture (M3.2)
+
+```
+                        ┌───────────────────────────────┐
+                        │      USER BROWSER (HOST)      │
+                        │  Dashboard: localhost:3000   │
+                        │  API / WS:  localhost:8000   │
+                        └───────┬───────────────┬───────┘
+                                │ HTTP          │ WS / REST
+                                ▼               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      DOCKER COMPOSE (ibvap-network)                         │
+│                                                                             │
+│  ┌───────────────────────┐          ┌────────────────────────────────────┐  │
+│  │   frontend:3000       │          │   backend:8000 (FastAPI)           │  │
+│  │   Node 20 Alpine      │          │   Python 3.12-slim                 │  │
+│  │   Next.js Standalone  │          │   Healthcheck: GET /health         │  │
+│  └───────────────────────┘          └───────┬────────────────────▲───────┘  │
+│                                             │                    │          │
+│                                             │ SQLAlchemy 2.0     │ HTTP     │
+│                                             │ :5432              │ REST/JWT │
+│                                             ▼                    │          │
+│                                     ┌───────────────┐    ┌───────┴───────┐  │
+│                                     │ postgres:15   │    │ ai:latest     │  │
+│                                     │ Alpine        │    │ YOLO + Byte   │  │
+│                                     │ Volume:       │    │ Video Ingest  │  │
+│                                     │ postgres_data │    └───────────────┘  │
+│                                     └───────────────┘                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Container Specifications
+1. **`postgres` (`postgres:15-alpine`)**: Persistent volume `postgres_data`, readiness healthcheck via `pg_isready`.
+2. **`backend` (`Python 3.12-slim`)**: Non-root `appuser`, runs Alembic migrations on startup, conditionally seeds demo data via `RUN_SEED=true`, exposes REST & WebSocket on port `8000`.
+3. **`ai` (`Python 3.12-slim`)**: Non-root `appuser`, pre-flight backend connectivity validation, OpenCV/YOLO/ByteTrack processing on video streams mounted read-only from `./data/videos`.
+4. **`frontend` (`Node 20-alpine`)**: Non-root `nextjs` user, production Next.js dashboard exposed on port `3000`.
+
+
 

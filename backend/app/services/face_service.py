@@ -35,18 +35,22 @@ class FaceService:
         if not YUNET_MODEL_PATH.exists() or not SFACE_MODEL_PATH.exists():
             MODELS_DIR.mkdir(parents=True, exist_ok=True)
             import urllib.request
+            import ssl
+            ssl_context = ssl._create_unverified_context()
             if not YUNET_MODEL_PATH.exists():
                 logger.info("Downloading YuNet face detection model...")
-                urllib.request.urlretrieve(
+                with urllib.request.urlopen(
                     "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
-                    str(YUNET_MODEL_PATH),
-                )
+                    context=ssl_context
+                ) as response, open(str(YUNET_MODEL_PATH), "wb") as out_file:
+                    out_file.write(response.read())
             if not SFACE_MODEL_PATH.exists():
                 logger.info("Downloading SFace face recognition model...")
-                urllib.request.urlretrieve(
+                with urllib.request.urlopen(
                     "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
-                    str(SFACE_MODEL_PATH),
-                )
+                    context=ssl_context
+                ) as response, open(str(SFACE_MODEL_PATH), "wb") as out_file:
+                    out_file.write(response.read())
 
         cls._detector = cv2.FaceDetectorYN.create(
             model=str(YUNET_MODEL_PATH),

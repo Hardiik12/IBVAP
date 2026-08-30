@@ -1,35 +1,99 @@
-version: '3.8'
-
 services:
-  # Development PostgreSQL Database
+  # 1. PostgreSQL Database Service
   postgres:
-    image: postgres:16-alpine
-    container_name: ibvap_postgres
+    image: postgres:15-alpine
+    container_name: ibvap-postgres
     environment:
-      POSTGRES_DB: ibvap
-      POSTGRES_USER: ibvap
-      POSTGRES_PASSWORD: ibvap
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-ibvap}
+      POSTGRES_USER: ${POSTGRES_USER:-ibvap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ibvap}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ibvap} -d ${POSTGRES_DB:-ibvap}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - ibvap-network
 
-  # Planned Microservices (To be enabled in future phases)
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: ../integration/docker/backend/Dockerfile
-  #   ports:
-  #     - "8000:8000"
-  #   depends_on:
-  #     - postgres
+  # 2. FastAPI M1 Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ibvap-backend
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ibvap}:${POSTGRES_PASSWORD:-ibvap}@postgres:5432/${POSTGRES_DB:-ibvap}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-replace-with-secure-random-secret-for-dev-only}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      EVIDENCE_ROOT: /app/data/evidence
+      RUN_SEED: ${RUN_SEED:-true}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/evidence:/app/data/evidence
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ibvap-network
 
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: ../integration/docker/frontend/Dockerfile
-  #   ports:
-  #     - "3000:3000"
+  # 3. AI Computer Vision & Analytics Pipeline Service
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: ibvap-ai
+    environment:
+      AI_BACKEND_URL: http://backend:8000
+      AI_USERNAME: ${AI_USERNAME:-operator_user}
+      AI_PASSWORD: ${AI_PASSWORD:-OperatorSecret123!}
+      AI_SOURCE_TYPE: ${AI_SOURCE_TYPE:-VIDEO_FILE}
+      AI_VIDEO_PATH: ${AI_VIDEO_PATH:-/app/data/videos/test/sample_test.mp4}
+      AI_CAMERA_ID: ${AI_CAMERA_ID:-e4b2d35c-8dfa-4fb4-81d0-1e5b128dc90e}
+      AI_ZONE_ID: ${AI_ZONE_ID:-c1f77b99-1c0b-4ef8-bb6d-8bb9bd380a22}
+      AI_MODEL_SHA256: ${AI_MODEL_SHA256:-}
+      AI_DISPATCH_TIMEOUT: ${AI_DISPATCH_TIMEOUT:-5.0}
+      AI_DISPATCH_RETRIES: ${AI_DISPATCH_RETRIES:-3}
+    volumes:
+      - ./data/videos:/app/data/videos:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - ibvap-network
+
+  # 4. Next.js Operational Security Dashboard Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_WS_URL: ws://localhost:8000/api/v1/ws/events
+    container_name: ibvap-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ibvap-network
 
 volumes:
   postgres_data:
+    name: ibvap_postgres_data
+
+networks:
+  ibvap-network:
+    name: ibvap-network
+    driver: bridge

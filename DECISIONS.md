@@ -126,3 +126,48 @@
 - **Rationale**: Meets SIH internal round MVP requirements with zero external infrastructure overhead while preserving atomic database transactions.
 - **Limitation**: The in-memory registry is designed for a single backend instance and does not synchronize active connections across multi-instance production clusters (which can be introduced in production phases using Redis Pub/Sub).
 - **Status**: ACCEPTED.
+
+---
+
+## ADR-014: AI-to-Backend HTTP Event Dispatcher & Idempotent Retry Policy
+
+- **Context**: The AI processing pipeline operates asynchronously from the M1 application server. Network interruptions or backend restarts must not crash the live computer vision video inference loop.
+- **Decision**:
+  1. Implement a dedicated HTTP client (`EventDispatcher` in `ai/events/dispatcher.py`) that authenticates with M1 using JWT Bearer tokens acquired via `POST /api/v1/auth/login`.
+  2. Cache and reuse access tokens across events, automatically re-authenticating on HTTP 401 Unauthorized.
+  3. Enforce bounded retries (default: 3 attempts with exponential backoff) and explicit timeouts (5.0s) so an offline backend cannot block video ingestion.
+  4. Implement deterministic `event_identifier` generation preserved across retries. Treat HTTP 409 Conflict as idempotent success (event already safely recorded in M1).
+  5. Never stream raw video frames over REST APIs; dispatch HTTP payloads **only** when an intrusion state transition is emitted by the spatial event engine.
+- **Rationale**: Keeps the computer vision inference engine decoupled, highly resilient to network blips, and prevents duplicate alerts from overloading the database.
+- **Status**: ACCEPTED.
+
+---
+
+## ADR-015: MVP Security Hardening & Fail-Closed Model Integrity Verification
+
+- **Context**: The platform processes sensitive border surveillance data, automated detection events, and evidentiary snapshots. Security controls must prevent tampering, unauthorized access, brute-force attacks, and model poisoning without breaking MVP performance or adding heavy external infrastructure.
+- **Decision**:
+  1. **AI Model Integrity Verification**: Implement SHA-256 weight checksum validation on initialization (`YOLODetector`, `ByteTracker`). When `AI_MODEL_SHA256` is configured, model loading fails closed (`RuntimeError`) if computed checksum does not match. In local development with empty configuration, verification is optional.
+  2. **Evidence Path Traversal & Symlink Hardening**: `resolve_path_safely` strictly rejects null bytes (`\0`), absolute root escapes (`/`), and checks `target.is_relative_to(EVIDENCE_ROOT)` to neutralize path traversal and symlink escapes.
+  3. **CORS Sanitization**: Explicitly disallow wildcard `*` origins when credentials are enabled. Enforce explicit trusted origins.
+  4. **In-Memory Login Throttling**: Implement sliding-window rate limiting (5 failed attempts within 60s) returning `HTTP 429 Too Many Requests` to prevent brute-force attacks without requiring Redis.
+  5. **Role-Based REST & WebSocket Access**: Enforce strict role boundaries across `OPERATOR`, `ANALYST`, `ADMINISTRATOR`, and `AUDITOR`.
+- **Rationale**: Delivers comprehensive P0 security hardening aligned with SIH internal round requirements with zero external infrastructure overhead.
+- **Status**: ACCEPTED.
+
+---
+
+## ADR-016: Docker Compose Multi-Container Orchestration & Video-First Demo Strategy
+
+- **Context**: The platform must be completely reproducible on any developer machine or presentation laptop with a single command (`docker compose up --build`), while accounting for macOS Docker limitations regarding direct host webcam device passthrough.
+- **Decision**:
+  1. **Container Topology**: Deploy 4 distinct services (`postgres`, `backend`, `ai`, `frontend`) connected via internal bridge network `ibvap-network`.
+  2. **Startup Ordering via Healthchecks**: PostgreSQL readiness verified with `pg_isready`; backend waits for healthy DB before executing `alembic upgrade head` and starts uvicorn; AI and frontend containers wait for backend `GET /health` before initiating workloads.
+  3. **Video-First Deterministic AI Ingestion**: The default AI container configuration reads test video files from a mounted read-only volume (`./data/videos:/app/data/videos:ro`), ensuring flawless reproducibility on macOS and Linux without hardware camera dependency.
+  4. **Host-Native Webcam Mode Preserved**: Native local execution (`python -m ai.pipeline.runner --source webcam`) remains fully supported for live hardware webcam demonstrations.
+  5. **Non-Root Container Security**: All application containers (`backend`, `ai`, `frontend`) execute with dedicated non-root users (`appuser`, `nextjs`).
+- **Rationale**: Eliminates cross-platform hardware incompatibility during SIH evaluations while delivering a secure, deterministic, zero-configuration deployment.
+- **Status**: ACCEPTED.
+
+
+

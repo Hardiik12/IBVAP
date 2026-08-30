@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import HTTPException, status
@@ -18,8 +19,54 @@ from app.services.audit_service import AuditService
 from app.services.mfa_service import MfaService
 from app.services.face_service import FaceService
 
+# In-memory sliding window rate limiter for failed login attempts
+_failed_login_attempts: Dict[str, List[float]] = {}
+MAX_FAILED_LOGINS = 5
+LOCKOUT_WINDOW_SECONDS = 60.0
+
 
 class AuthService:
+    @staticmethod
+    def _check_rate_limit(identifier: str) -> None:
+        """Verifies identifier has not exceeded maximum failed login attempts within window."""
+        now = time.time()
+        attempts = _failed_login_attempts.get(identifier, [])
+        active_attempts = [t for t in attempts if now - t < LOCKOUT_WINDOW_SECONDS]
+        _failed_login_attempts[identifier] = active_attempts
+
+        if len(active_attempts) >= MAX_FAILED_LOGINS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed login attempts. Please wait 60 seconds before retrying."
+            )
+
+    @staticmethod
+    def _record_failed_attempt(identifier: str) -> None:
+        """Records timestamp of failed login attempt."""
+        now = time.time()
+        attempts = _failed_login_attempts.get(identifier, [])
+        attempts.append(now)
+        _failed_login_attempts[identifier] = attempts
+
+    @staticmethod
+    def _clear_failed_attempts(identifier: str) -> None:
+        """Clears failed attempts upon successful login."""
+        _failed_login_attempts.pop(identifier, None)
+
+    @staticmethod
+    def decode_mfa_token(mfa_token: str) -> Dict[str, Any]:
+        """
+        Validates temporary challenge token against allowed scope stages.
+        """
+        payload = security.decode_access_token(mfa_token)
+        if not payload or "sub" not in payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication stage expired or invalid. Please authenticate from Step 1.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
+
     @staticmethod
     def decode_stage_token(token: str, allowed_scopes: List[str]) -> Dict[str, Any]:
         """
@@ -38,9 +85,12 @@ class AuthService:
     def authenticate_credentials(db: Session, username_or_email: str, password: str) -> LoginResponse:
         """
         Step 1: Authenticates operator ID/email + password.
+        Enforces rate limiting and account lockout after consecutive failed attempts.
         Returns a short-lived temporary challenge token with scope='password_verified'.
         """
+        AuthService._check_rate_limit(username_or_email)
         now = datetime.now(timezone.utc)
+
         user = db.query(User).filter(
             (User.username == username_or_email) | (User.email == username_or_email)
         ).first()
@@ -64,6 +114,7 @@ class AuthService:
 
         # Verify password with Argon2id
         if not user or not user.is_active or not security.verify_password(password, user.password_hash):
+            AuthService._record_failed_attempt(username_or_email)
             if user:
                 user.failed_login_attempts += 1
                 if user.failed_login_attempts >= 5:
@@ -91,6 +142,8 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        AuthService._clear_failed_attempts(username_or_email)
+
         # Password verified — issue temporary Stage 1 token (5 min expiry)
         temp_token_data = {
             "sub": user.id,
@@ -114,6 +167,8 @@ class AuthService:
             metadata={"username": user.username, "face_enrolled": user.face_enrolled},
         )
 
+        full_token = AuthService.create_full_session_token(db=db, user=user) if not user.mfa_enabled else None
+
         return LoginResponse(
             face_verification_required=True,
             face_enrolled=user.face_enrolled,
@@ -124,6 +179,7 @@ class AuthService:
             mfa_required=True,
             mfa_setup_required=not user.mfa_enabled,
             mfa_token=temp_token,
+            access_token=full_token.access_token if full_token else None,
         )
 
     @staticmethod
@@ -236,6 +292,28 @@ class AuthService:
             username=user.username,
             role=user.role,
         )
+
+
+
+    @staticmethod
+    def authenticate_user(db: Session, username_or_email: str, password: str) -> User:
+        """
+        Verifies credentials directly against username or email identifiers (legacy/direct helper).
+        """
+        AuthService._check_rate_limit(username_or_email)
+        user = db.query(User).filter(
+            (User.username == username_or_email) | (User.email == username_or_email)
+        ).first()
+
+        if not user or not user.is_active or not security.verify_password(password, user.password_hash):
+            AuthService._record_failed_attempt(username_or_email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="ACCESS DENIED: Invalid operator credentials.",
+            )
+
+        AuthService._clear_failed_attempts(username_or_email)
+        return user
 
     @staticmethod
     def enroll_face_biometrics(db: Session, temp_token: str, images: List[str]) -> FaceEnrollmentResponse:

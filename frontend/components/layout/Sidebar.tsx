@@ -13,12 +13,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Radio,
+  History,
+  LogOut,
 } from "lucide-react";
 import { useAlerts } from "../../hooks/useAlerts";
+import { useAuth } from "../../context/AuthContext";
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const { unreadCount } = useAlerts();
+  const { user, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const navigation = [
@@ -29,8 +33,9 @@ export const Sidebar: React.FC = () => {
       icon: Bell,
       badge: unreadCount > 0 ? unreadCount : undefined,
     },
-    { name: "Audit Log", href: "/events", icon: ListOrdered },
+    { name: "Events", href: "/events", icon: ListOrdered },
     { name: "Evidence Vault", href: "/evidence", icon: FileCheck2 },
+    { name: "Audit Trail", href: "/audit-logs", icon: History },
     { name: "Cameras", href: "/cameras", icon: Video },
   ];
 
@@ -128,15 +133,30 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      {/* Footer Info */}
-      {!isCollapsed && (
-        <div className="p-3 border-t border-white/10 bg-surface-200/30 text-[10px] text-slate-500 font-mono">
-          <div className="flex items-center justify-between">
-            <span>CORE</span>
-            <span className="text-slate-300">YOLOv8 + PIP</span>
+      {/* Footer Info & Logout */}
+      <div className="p-3 border-t border-white/10 bg-surface-200/30 text-[10px] text-slate-500 font-mono space-y-2">
+        {!isCollapsed && user && (
+          <div className="space-y-1 pb-1">
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="truncate">{user.username}</span>
+              <span className="text-[9px] px-1 rounded bg-blue-950 text-blue-400 border border-blue-800 font-bold">
+                {user.role}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        <button
+          onClick={logout}
+          title="Sign Out"
+          className={`w-full flex items-center ${
+            isCollapsed ? "justify-center p-2" : "justify-between px-2.5 py-1.5"
+          } rounded text-slate-400 hover:text-red-400 hover:bg-red-950/30 border border-transparent hover:border-red-900/50 transition`}
+        >
+          {!isCollapsed && <span>SIGN OUT</span>}
+          <LogOut className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </aside>
   );
 };

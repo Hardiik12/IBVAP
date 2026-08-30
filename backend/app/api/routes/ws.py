@@ -22,17 +22,22 @@ ALLOWED_ROLES = {
 
 
 async def handle_ws_connection(websocket: WebSocket, token: Optional[str], db: Session):
-    # If token is provided, validate it
-    user = None
-    if token:
-        payload = security.decode_access_token(token)
-        if payload and "sub" in payload:
-            user = db.query(User).filter(User.id == payload["sub"]).first()
+    if not token:
+        logger.warning("WebSocket connection rejected: missing token.")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing authentication token")
+        return
 
-    # Strictly validate user from token
-    if not user or not user.is_active:
-        logger.warning("WebSocket connection attempt rejected: missing or invalid credentials.")
+    payload = security.decode_access_token(token)
+    if not payload or "sub" not in payload:
+        logger.warning("WebSocket connection rejected: invalid or expired token.")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token")
+        return
+
+
+    user = db.query(User).filter(User.id == payload["sub"]).first()
+    if not user or not user.is_active or user.role not in ALLOWED_ROLES:
+        logger.warning(f"WebSocket connection rejected: user {payload.get('sub')} inactive or unauthorized.")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized or inactive user")
         return
 
     # Connect and register client

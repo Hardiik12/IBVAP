@@ -13,12 +13,15 @@ if str(_BACKEND) not in sys.path:
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from app.db.database import get_db
 from app.core.config import settings
 from app.core.logging import setup_logging, logger
 from app.api.api import api_router
+
 
 
 # Initialize structured logging
@@ -89,26 +92,26 @@ def read_root() -> dict:
 
 @app.get("/health", tags=["System"])
 @app.get("/api/v1/health", tags=["System"])
-def health() -> dict:
+def health(db: Session = Depends(get_db)) -> dict:
     """
     Health check endpoint for frontend and system monitoring.
     """
     db_status = "connected"
     try:
-        from app.db.database import engine
         from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
+        db.execute(text("SELECT 1"))
     except Exception:
         db_status = "disconnected"
 
     return {
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "service": "ibvap-backend",
+        "status": "ok" if db_status == "connected" else "degraded",
+        "service": settings.APP_NAME,
         "version": settings.VERSION,
         "database": db_status,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+
 
 
 @app.exception_handler(HTTPException)

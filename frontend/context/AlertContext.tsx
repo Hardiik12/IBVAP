@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { WebSocketAlertMessage, AlertState } from "../types/alert";
-import { MOCK_EVENTS } from "../services/mockData";
+import { alertService } from "../services/alertService";
+import { eventService } from "../services/eventService";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 interface AlertContextType {
   alerts: AlertState[];
@@ -10,6 +12,8 @@ interface AlertContextType {
   latestAlert: WebSocketAlertMessage | null;
   activeEvidenceModalId: string | null;
   isAudioMuted: boolean;
+  isWsConnected: boolean;
+  wsError: string | null;
   addAlert: (alert: WebSocketAlertMessage) => void;
   markAsRead: (alertId: string) => void;
   markAllAsRead: () => void;
@@ -17,34 +21,53 @@ interface AlertContextType {
   openEvidenceModal: (evidenceId: string) => void;
   closeEvidenceModal: () => void;
   toggleAudioMute: () => void;
+  refreshAlerts: () => Promise<void>;
+  triggerTestAlert: () => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
 
 export function AlertProvider({ children }: { children: React.ReactNode }) {
-  const [alerts, setAlerts] = useState<AlertState[]>(() => {
-    return MOCK_EVENTS.map((e) => ({
-      type: "NEW_ALERT",
-      alert_id: `alt-${e.event_id.replace("evt-", "")}`,
-      event_id: e.event_id,
-      event_type: e.event_type,
-      camera_id: e.camera_id,
-      camera_name: e.camera_id === "cam-01" ? "Perimeter Sector Alpha" : "North Gate Entrance",
-      zone_name: e.zone_name || "Perimeter Exclusion Zone 1",
-      track_id: e.track_id,
-      class_name: e.class_name,
-      confidence: e.confidence,
-      severity: e.severity,
-      timestamp: e.timestamp,
-      evidence_id: e.evidence_id || "evi-33104",
-      bbox: e.bbox,
-      isRead: false,
-    }));
-  });
-
+  const [alerts, setAlerts] = useState<AlertState[]>([]);
   const [latestAlert, setLatestAlert] = useState<WebSocketAlertMessage | null>(null);
   const [activeEvidenceModalId, setActiveEvidenceModalId] = useState<string | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  const refreshAlerts = useCallback(async () => {
+    try {
+      const realAlerts = await alertService.getAlerts({ limit: 50 });
+      if (realAlerts && realAlerts.length > 0) {
+        setAlerts(realAlerts);
+        return;
+      }
+
+      const events = await eventService.getEvents({ limit: 30 });
+      const mappedAlerts: AlertState[] = events.map((e) => ({
+        type: "NEW_ALERT",
+        alert_id: `alt-${e.event_id}`,
+        event_id: e.event_id,
+        event_type: e.event_type,
+        camera_id: e.camera_id,
+        camera_name: "Main Perimeter Camera 01",
+        zone_name: e.zone_name || "Perimeter Restricted Zone",
+        track_id: e.track_id,
+        class_name: e.class_name,
+        confidence: e.confidence,
+        severity: e.severity,
+        timestamp: e.timestamp,
+        evidence_id: e.evidence_id || e.event_id,
+        bbox: e.bbox,
+        isRead: !!e.acknowledged,
+      }));
+      setAlerts(mappedAlerts);
+    } catch {
+      // Backend not ready yet or unauthenticated
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAlerts();
+  }, [refreshAlerts]);
 
   const unreadCount = alerts.filter((a) => !a.isRead).length;
 
@@ -54,14 +77,33 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
       isRead: false,
     };
 
-    setAlerts((prev) => [alertWithState, ...prev.slice(0, 49)]); // keep last 50
+    setAlerts((prev) => {
+      // Avoid duplicate alert cards for identical alert_id or event_id
+      const exists = prev.some(
+        (a) =>
+          a.alert_id === alertWithState.alert_id ||
+          (alertWithState.event_id && a.event_id === alertWithState.event_id)
+      );
+      if (exists) return prev;
+      return [alertWithState, ...prev.slice(0, 99)];
+    });
     setLatestAlert(newAlertMsg);
   }, []);
 
-  const markAsRead = useCallback((alertId: string) => {
+  const { isConnected: isWsConnected, connectionError: wsError, triggerTestAlert } = useWebSocket({
+    onMessage: addAlert,
+    autoConnect: true,
+  });
+
+  const markAsRead = useCallback(async (alertId: string) => {
     setAlerts((prev) =>
       prev.map((a) => (a.alert_id === alertId ? { ...a, isRead: true } : a))
     );
+    try {
+      await alertService.acknowledgeAlert(alertId);
+    } catch {
+      // Silently handle if error / unauthorized
+    }
   }, []);
 
   const markAllAsRead = useCallback(() => {
@@ -93,6 +135,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         latestAlert,
         activeEvidenceModalId,
         isAudioMuted,
+        isWsConnected,
+        wsError,
         addAlert,
         markAsRead,
         markAllAsRead,
@@ -100,6 +144,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         openEvidenceModal,
         closeEvidenceModal,
         toggleAudioMute,
+        refreshAlerts,
+        triggerTestAlert,
       }}
     >
       {children}
@@ -116,4 +162,3 @@ export function useAlertContext(): AlertContextType {
 }
 
 export const useAlerts = useAlertContext;
-

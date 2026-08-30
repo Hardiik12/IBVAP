@@ -22,8 +22,9 @@ def get_current_user(
     if token:
         payload = security.decode_access_token(token)
         if payload and "sub" in payload:
-            # Check scope — reject any partial stage tokens (password_verified, face_verified, mfa_pending)
-            if payload.get("scope") != "fully_authenticated":
+            # Check scope — reject any partial stage tokens (password_verified, face_verified, mfa_pending, mfa_verified)
+            scope = payload.get("scope")
+            if scope in ["password_verified", "face_verified", "mfa_pending", "mfa_verified"]:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Full biometric and MFA authentication required before accessing this resource.",

@@ -36,18 +36,27 @@ class Settings(BaseSettings):
         description="Allowed CORS origins"
     )
 
-    @field_validator("CORS_ORIGINS", mode="after")
+    @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str):
             if v.startswith("["):
                 import json
                 try:
-                    return json.loads(v)
+                    origins = json.loads(v)
+                    return [str(i).strip() for i in origins if str(i).strip()]
                 except Exception:
                     pass
-            return [i.strip() for i in v.split(",") if i.strip()]
-        return v
+            origins = [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            origins = [str(i).strip() for i in v if str(i).strip()]
+        else:
+            raise ValueError(v)
+
+        if "*" in origins and len(origins) > 1:
+            origins = [o for o in origins if o != "*"]
+        return origins
+
 
 
     model_config = SettingsConfigDict(

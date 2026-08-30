@@ -65,9 +65,13 @@ export const Badge: React.FC<BadgeProps> = ({
       case "VERIFIED":
         styles += "bg-emerald-950/90 text-emerald-300 border border-emerald-600 shadow-sm shadow-emerald-900/40";
         return <span className={`${styles} ${className}`}>🔒 VERIFIED (MATCH)</span>;
+      case "MISMATCH":
       case "TAMPERED":
         styles += "bg-red-950/90 text-red-300 border border-red-600 shadow-sm shadow-red-900/40 animate-pulse";
         return <span className={`${styles} ${className}`}>🚨 TAMPERED (MISMATCH)</span>;
+      case "NOT_HASHED":
+        styles += "bg-amber-950/70 text-amber-300 border border-amber-700";
+        return <span className={`${styles} ${className}`}>🟡 NOT HASHED</span>;
       case "PENDING":
         styles += "bg-amber-950/70 text-amber-300 border border-amber-700";
         return <span className={`${styles} ${className}`}>⏳ VERIFYING...</span>;

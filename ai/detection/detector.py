@@ -1,19 +1,31 @@
-"""YOLO object detector wrapper for IBVAP."""
-
-from __future__ import annotations
-
+import hashlib
+import logging
 import os
+from typing import Optional
 
 import numpy as np
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None  # type: ignore
 
 from ai.detection.schemas import NormalizedDetection
+from ai.core.config import ai_settings
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = os.getenv("YOLO_MODEL", "yolov8n.pt")
-DEFAULT_CONFIDENCE = float(
-    os.getenv("YOLO_CONFIDENCE", "0.35")
-)
+DEFAULT_CONFIDENCE = float(os.getenv("YOLO_CONFIDENCE", "0.35"))
+
+
+def compute_file_sha256(file_path: str) -> str:
+    """Computes SHA-256 hash of a local model file in 64KB chunks."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(65536):
+            sha256.update(chunk)
+    return sha256.hexdigest().lower()
 
 
 class YOLODetector:
@@ -24,9 +36,36 @@ class YOLODetector:
         model_path: str = DEFAULT_MODEL,
         confidence_threshold: float = DEFAULT_CONFIDENCE,
         target_classes: set[int] | None = None,
+        expected_sha256: Optional[str] = None,
     ) -> None:
+        if YOLO is None:
+            raise RuntimeError("Ultralytics package is not installed.")
+
         self.model = YOLO(model_path)
         self.confidence_threshold = confidence_threshold
+
+        # Verify model file integrity if expected SHA-256 is configured
+        sha_to_check = expected_sha256 or ai_settings.MODEL_SHA256
+        if sha_to_check:
+            weights_file = getattr(self.model, "ckpt_path", model_path)
+            if not os.path.isfile(str(weights_file)):
+                weights_file = model_path
+            if os.path.isfile(str(weights_file)):
+                actual_sha = compute_file_sha256(str(weights_file))
+                if actual_sha.lower() != sha_to_check.lower():
+                    err_msg = (
+                        f"Model integrity verification failed for '{weights_file}'. "
+                        f"Expected SHA-256: {sha_to_check}, got: {actual_sha}."
+                    )
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
+                logger.info(f"Model integrity verified successfully for '{weights_file}'.")
+            else:
+                err_msg = f"Model file '{model_path}' not found for integrity verification."
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+
+
 
         # COCO classes:
         # 0 = person

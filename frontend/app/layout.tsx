@@ -19,11 +19,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="bg-background text-slate-100 flex h-screen overflow-hidden antialiased">
         <AuthProvider>
-          <AlertProvider>
-            <CameraProvider>
+          <CameraProvider>
+            <AlertProvider>
               <AppShell>{children}</AppShell>
-            </CameraProvider>
-          </AlertProvider>
+            </AlertProvider>
+          </CameraProvider>
         </AuthProvider>
       </body>
     </html>
