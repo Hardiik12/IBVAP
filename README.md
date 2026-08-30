@@ -45,16 +45,38 @@ PYTHONPATH=. backend/.venv/bin/python ai/pipeline/runner.py --source VIDEO_FILE 
 
 ## 📌 Master Documentation Index
 
-- **[Master Project Document (`PROJECT.md`)](file:///Users/hardik/Downloads/IBVAP/PROJECT.md)** — Core master document, vision, 16-step demo story, and SIH Internal Round MVP scope.
-- **[Product Requirements (`PRD.md`)](file:///Users/hardik/Downloads/IBVAP/PRD.md)** — User personas, functional/non-functional requirements, KPIs.
-- **[System Requirements (`REQUIREMENTS.md`)](file:///Users/hardik/Downloads/IBVAP/REQUIREMENTS.md)** — Hardware, software runtimes, dependencies, and environment specs.
-- **[Technology Stack (`TECH_STACK.md`)](file:///Users/hardik/Downloads/IBVAP/TECH_STACK.md)** — Tech selection matrix and architectural rationale.
-- **[System Architecture (`ARCHITECTURE.md`)](file:///Users/hardik/Downloads/IBVAP/ARCHITECTURE.md)** — End-to-end dataflow, AI pipeline lifecycle, and evidence hashing architecture.
-- **[API Specification (`API.md`)](file:///Users/hardik/Downloads/IBVAP/API.md)** — REST API endpoints, WebSocket contracts, payload schemas.
-- **[Database Design (`DATABASE.md`)](file:///Users/hardik/Downloads/IBVAP/DATABASE.md)** — Relational ERD, table DDLs, and efficient data storage strategy.
-- **[AI Agent Rules (`AGENTS.md`)](file:///Users/hardik/Downloads/IBVAP/AGENTS.md)** — Mandatory directives and stop rules for AI coding assistants.
-- **[Implementation Tasks (`TASKS.md`)](file:///Users/hardik/Downloads/IBVAP/TASKS.md)** — Phased roadmap (Phase 0 to Phase 11) and task matrix.
-- **[Architecture Decisions (`DECISIONS.md`)](file:///Users/hardik/Downloads/IBVAP/DECISIONS.md)** — Architecture Decision Records (ADRs 001–007).
+All project documentation, specifications, SIH pitch decks, judge defense cards, demo runbooks, and milestone validation reports are organized in the [`docs/`](file:///Users/hardik/Downloads/IBVAP/docs/) directory:
+
+### 📐 Specifications & Architecture (`docs/specs/`)
+- **[`PROJECT.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/PROJECT.md)** — Master project document, core vision, 16-step demo story, and SIH MVP scope.
+- **[`ARCHITECTURE.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/ARCHITECTURE.md)** — End-to-end dataflow, AI pipeline lifecycle, and evidence hashing architecture.
+- **[`PRD.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/PRD.md)** — Product requirements, personas, and functional requirements.
+- **[`API.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/API.md)** — REST API specifications, WebSocket data contracts, and schema definitions.
+- **[`DATABASE.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/DATABASE.md)** — Relational ERD, table DDLs, and storage strategy.
+- **[`DECISIONS.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/DECISIONS.md)** — Architecture Decision Records (ADRs 001–014).
+- **[`REQUIREMENTS.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/REQUIREMENTS.md)** & **[`TECH_STACK.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/TECH_STACK.md)** — Hardware/software runtimes and tech selection rationale.
+- **[`TASKS.md`](file:///Users/hardik/Downloads/IBVAP/docs/specs/TASKS.md)** — Phased development roadmap and task matrix.
+
+### 🎤 SIH Presentation & Pitch Decks (`docs/sih/presentation/`)
+- **[`SIH_PRESENTATION.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/presentation/SIH_PRESENTATION.md)** — Complete 10-slide SIH Internal Round presentation slide deck.
+- **[`SIH_LIVE_DEMO_SPOKEN_SCRIPT.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/presentation/SIH_LIVE_DEMO_SPOKEN_SCRIPT.md)** — Synchronized spoken script with timestamp checkpoints.
+- **[`SIH_PITCH_3_MIN.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/presentation/SIH_PITCH_3_MIN.md)** & **[`IBVAP_ELEVATOR_PITCH.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/presentation/IBVAP_ELEVATOR_PITCH.md)** — 3-minute, 60s, and 30s pitch formulations.
+
+### 🛡️ Judge Defense & Q&A (`docs/sih/defense/`)
+- **[`SIH_JUDGE_QA.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/defense/SIH_JUDGE_QA.md)** & **[`SIH_RAPID_FIRE_QA.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/defense/SIH_RAPID_FIRE_QA.md)** — Defenses for edge compute, accuracy, latency, and security.
+- **[`SIH_MOCK_JUDGE_INTERROGATION.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/defense/SIH_MOCK_JUDGE_INTERROGATION.md)** — 15 simulated judge challenges and technical defenses.
+- **[`SIH_CODE_DEFENSE_CARD.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/defense/SIH_CODE_DEFENSE_CARD.md)** — File-and-line code defense index.
+
+### 🚀 Demo Runbooks & Command Cards (`docs/sih/demo/`)
+- **[`SIH_FINAL_DEMO_RUNBOOK.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/demo/SIH_FINAL_DEMO_RUNBOOK.md)** — Step-by-step presentation execution guide.
+- **[`LOCAL_DEMO_STARTUP.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/demo/LOCAL_DEMO_STARTUP.md)** & **[`SIH_DEMO_COMMAND_CARD.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/demo/SIH_DEMO_COMMAND_CARD.md)** — Fast startup commands.
+- **[`SIH_DEMO_BACKUP_PLAN.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/demo/SIH_DEMO_BACKUP_PLAN.md)** & **[`SIH_DEMO_FAILURE_PLAYBOOK.md`](file:///Users/hardik/Downloads/IBVAP/docs/sih/demo/SIH_DEMO_FAILURE_PLAYBOOK.md)** — Zero-fail contingency protocols.
+
+### 📊 Milestone Reports & Security Audits (`docs/reports/`)
+- **[`FINAL_RELEASE_VALIDATION_REPORT.md`](file:///Users/hardik/Downloads/IBVAP/docs/reports/FINAL_RELEASE_VALIDATION_REPORT.md)** — 12-phase read-only release candidate validation.
+- **[`RBAC_SECURITY_CONSISTENCY_AUDIT.md`](file:///Users/hardik/Downloads/IBVAP/docs/reports/RBAC_SECURITY_CONSISTENCY_AUDIT.md)** — Comprehensive RBAC & security consistency audit.
+- **[`RBAC_DASHBOARD_VALIDATION.md`](file:///Users/hardik/Downloads/IBVAP/docs/reports/RBAC_DASHBOARD_VALIDATION.md)** — Role-by-role endpoint and WebSocket verification.
+- **[`PERFORMANCE_RESULTS.md`](file:///Users/hardik/Downloads/IBVAP/docs/reports/PERFORMANCE_RESULTS.md)** — Benchmark results (185+ FPS, sub-6ms latency).
 
 ---
 
