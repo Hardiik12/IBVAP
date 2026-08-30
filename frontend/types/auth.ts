@@ -72,6 +72,7 @@ export interface MfaSetupResponse {
   qr_code_base64: string;
   provisioning_uri: string;
   username: string;
+  current_code?: string;
 }
 
 export interface MfaVerifyResponse {

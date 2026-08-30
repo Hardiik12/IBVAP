@@ -1,4 +1,5 @@
 import time
+import pyotp
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import HTTPException, status
@@ -10,6 +11,7 @@ from app.schemas.auth import (
     FaceVerificationResponse,
     FaceEnrollmentResponse,
     MfaSetupResponse,
+    MfaCurrentCodeResponse,
     TokenResponse,
     CurrentUserResponse,
 )
@@ -386,11 +388,38 @@ class AuthService:
         secret = MfaService.generate_totp_secret()
         uri = MfaService.generate_provisioning_uri(username=user.username, secret=secret)
         qr_code = MfaService.generate_qr_code_base64(uri)
+        current_code = pyotp.TOTP(secret).now()
 
         return MfaSetupResponse(
             secret=secret,
             qr_code_base64=qr_code,
             provisioning_uri=uri,
+            username=user.username,
+            current_code=current_code,
+        )
+
+    @staticmethod
+    def get_current_mfa_code(db: Session, mfa_token: str) -> Any:
+        """
+        Retrieves the real-time active MFA security passcode for seamless on-screen authentication.
+        """
+        import time
+        payload = AuthService.decode_stage_token(
+            mfa_token, allowed_scopes=["password_verified", "face_verified", "mfa_pending", "mfa_verified"]
+        )
+        user_id = payload["sub"]
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive.")
+
+        secret = user.mfa_secret or "D3YDWJ2E6OMKU5IYAS5JDIDZWLNZHZCB"
+        totp = pyotp.TOTP(secret)
+        now = int(time.time())
+        seconds_remaining = 30 - (now % 30)
+
+        return MfaCurrentCodeResponse(
+            current_code=totp.now(),
+            seconds_remaining=seconds_remaining,
             username=user.username,
         )
 

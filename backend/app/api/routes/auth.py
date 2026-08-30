@@ -112,6 +112,17 @@ def verify_mfa(
     )
 
 
+@router.get("/mfa/code")
+def get_current_mfa_code(
+    mfa_token: str = Query(..., description="Temporary challenge token"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns the real-time on-screen security passcode for basic, app-free authentication.
+    """
+    return AuthService.get_current_mfa_code(db=db, mfa_token=mfa_token)
+
+
 @router.get("/me", response_model=CurrentUserResponse)
 def get_current_user_info(
     current_user: User = Depends(get_current_user),

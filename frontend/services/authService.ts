@@ -110,6 +110,14 @@ export const authService = {
     return response.data;
   },
 
+  // Get Current Live Security Passcode (No app required)
+  async getCurrentMfaCode(mfa_token: string): Promise<{ current_code: string; seconds_remaining: number; username: string }> {
+    const response = await apiClient.get<{ current_code: string; seconds_remaining: number; username: string }>("/auth/mfa/code", {
+      params: { mfa_token },
+    });
+    return response.data;
+  },
+
   // Step 2: MFA Activation (Initial Code)
   async enableMfa(mfa_token: string, secret: string, code: string): Promise<MfaVerifyResponse> {
     const response = await apiClient.post<MfaVerifyResponse>("/auth/mfa/enable", {

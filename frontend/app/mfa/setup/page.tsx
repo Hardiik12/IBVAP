@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert, Copy, Check, QrCode, ArrowLeft, Loader2, KeyRound, ChevronRight } from "lucide-react";
+import { ShieldAlert, Copy, Check, QrCode, ArrowLeft, Loader2, KeyRound, ChevronRight, Zap, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { authService } from "@/services/authService";
 import { MfaSetupResponse } from "@/types/auth";
@@ -19,7 +19,7 @@ export default function MfaSetupPage() {
   const [isCopied, setIsCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Fetch QR Code and Secret
+  // Fetch QR Code, Secret and Real-Time Passcode
   useEffect(() => {
     async function loadSetup() {
       const activeToken = mfaToken || authService.getStoredMfaToken();
@@ -87,6 +87,13 @@ export default function MfaSetupPage() {
     }
   };
 
+  const handleAutoFillCode = () => {
+    if (!setupData?.secret || !setupData?.current_code) return;
+    const code = setupData.current_code;
+    setDigits(code.split(""));
+    submitActivation(code, setupData.secret);
+  };
+
   const submitActivation = async (code: string, secret: string) => {
     if (code.length !== 6) {
       setErrorMessage("Please enter all 6 digits of the confirmation code.");
@@ -134,7 +141,7 @@ export default function MfaSetupPage() {
                 MFA DEVICE ENROLLMENT
               </h1>
               <p className="text-xs text-slate-400 font-mono">
-                Bind Google Authenticator, Microsoft Authenticator, or Authy
+                Authenticator App Setup or Instant On-Screen Passcode
               </p>
             </div>
           </div>
@@ -174,58 +181,75 @@ export default function MfaSetupPage() {
                 </div>
               )}
               <span className="text-[10px] font-mono text-cyan-400 mt-2.5 tracking-wider uppercase">
-                SCAN WITH AUTHENTICATOR APP
+                OPTION 1: SCAN WITH MOBILE APP
               </span>
             </div>
 
             {/* Right Instructions & Verification Form */}
             <div className="md:col-span-7 flex flex-col justify-between space-y-4">
               
-              {/* Step by Step Guide */}
-              <div className="space-y-2 text-xs font-mono text-slate-300">
-                <p className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
-                  <span>Scan the QR code with your mobile authenticator app.</span>
-                </p>
-                <p className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
-                  <span>Or enter the manual secret key if camera scanning is unavailable:</span>
-                </p>
-              </div>
-
-              {/* Manual Secret Key Copy Box */}
-              {setupData?.secret && (
-                <div className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 rounded-lg">
-                  <div className="font-mono text-xs text-cyan-300 tracking-wider font-semibold truncate pr-2">
-                    {setupData.secret}
+              {/* Option 2: Instant On-Screen Passcode */}
+              {setupData?.current_code && (
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-cyan-950/60 via-blue-950/40 to-slate-900 border border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.15)] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-cyan-300 font-mono flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                      OPTION 2: NO APP REQUIRED
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500 text-cyan-300 font-bold tracking-widest">
+                      {setupData.current_code}
+                    </span>
                   </div>
                   <button
                     type="button"
-                    onClick={handleCopySecret}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-mono flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                    onClick={handleAutoFillCode}
+                    disabled={isSubmitting}
+                    className="w-full py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition cursor-pointer"
                   >
-                    {isCopied ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span className="text-emerald-400">COPIED</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3 text-slate-400" />
-                        <span>COPY KEY</span>
-                      </>
-                    )}
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>⚡ 1-CLICK AUTO-FILL & ACTIVATE ({setupData.current_code})</span>
                   </button>
                 </div>
               )}
 
+              {/* Manual Secret Key Copy Box */}
+              {setupData?.secret && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-mono text-slate-400">
+                    Manual Secret Key:
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-slate-950 border border-slate-800 rounded-lg">
+                    <div className="font-mono text-xs text-cyan-300 tracking-wider font-semibold truncate pr-2">
+                      {setupData.secret}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopySecret}
+                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-mono flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                    >
+                      {isCopied ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="text-emerald-400">COPIED</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-slate-400" />
+                          <span>COPY</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Step 3: Enter 6-Digit Code */}
-              <form onSubmit={handleSubmit} className="pt-2">
+              <form onSubmit={handleSubmit} className="pt-1">
                 <label className="block text-xs font-mono text-slate-300 mb-2">
-                  3. Enter 6-digit confirmation code from your app:
+                  Enter 6-digit confirmation passcode:
                 </label>
 
-                <div className="flex items-center justify-between gap-1.5 mb-4">
+                <div className="flex items-center justify-between gap-1.5 mb-3">
                   {digits.map((digit, idx) => (
                     <input
                       key={idx}
@@ -280,7 +304,7 @@ export default function MfaSetupPage() {
           </button>
 
           <span className="text-[11px] text-slate-500">
-            Compatible: Google Authenticator • MS Authenticator • Authy
+            Option 1: Mobile App • Option 2: 1-Click On-Screen Passcode
           </span>
         </div>
 

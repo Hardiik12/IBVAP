@@ -79,6 +79,13 @@ class MfaSetupResponse(BaseModel):
     qr_code_base64: str
     provisioning_uri: str
     username: str
+    current_code: Optional[str] = None
+
+
+class MfaCurrentCodeResponse(BaseModel):
+    current_code: str
+    seconds_remaining: int
+    username: str
 
 
 class MfaEnableRequest(BaseModel):

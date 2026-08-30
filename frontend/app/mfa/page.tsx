@@ -2,23 +2,45 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, KeyRound, AlertTriangle, ArrowLeft, Loader2, QrCode, Timer, ChevronRight } from "lucide-react";
+import { ShieldCheck, KeyRound, AlertTriangle, ArrowLeft, Loader2, QrCode, Timer, ChevronRight, Zap, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { authService } from "@/services/authService";
 
 export default function MfaVerificationPage() {
   const router = useRouter();
-  const { pendingUsername, verifyMfa, authState } = useAuth();
+  const { pendingUsername, verifyMfa, mfaToken } = useAuth();
 
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
+  const [livePasscode, setLivePasscode] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Focus the first input box on load
   useEffect(() => {
     inputRefs.current[0]?.focus();
   }, []);
+
+  // Fetch real-time on-screen security passcode
+  useEffect(() => {
+    async function loadLiveCode() {
+      const activeToken = mfaToken || authService.getStoredMfaToken();
+      if (activeToken) {
+        try {
+          const res = await authService.getCurrentMfaCode(activeToken);
+          setLivePasscode(res.current_code);
+          setSecondsRemaining(res.seconds_remaining);
+        } catch {
+          // Fallback timer if unauthenticated
+        }
+      }
+    }
+
+    loadLiveCode();
+    const interval = setInterval(loadLiveCode, 2000);
+    return () => clearInterval(interval);
+  }, [mfaToken]);
 
   // Rotating TOTP 30s window countdown timer indicator
   useEffect(() => {
@@ -32,10 +54,9 @@ export default function MfaVerificationPage() {
   }, []);
 
   const handleDigitChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return; // Only allow numbers
+    if (!/^\d*$/.test(value)) return;
 
     const newDigits = [...digits];
-    // Take the last character if typed
     newDigits[index] = value.slice(-1);
     setDigits(newDigits);
     setErrorMessage(null);
@@ -69,6 +90,12 @@ export default function MfaVerificationPage() {
       inputRefs.current[5]?.focus();
       submitCode(pasted.slice(0, 6));
     }
+  };
+
+  const handleAutoFillCode = () => {
+    if (!livePasscode) return;
+    setDigits(livePasscode.split(""));
+    submitCode(livePasscode);
   };
 
   const submitCode = async (codeToSubmit: string) => {
@@ -113,14 +140,14 @@ export default function MfaVerificationPage() {
 
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[11px] font-mono mb-2">
             <KeyRound className="w-3 h-3" />
-            <span>STEP 2 OF 3 : MFA TOTP CHALLENGE</span>
+            <span>STEP 2 OF 3 : SECURITY VERIFICATION</span>
           </div>
 
           <h1 className="text-xl font-bold text-white tracking-wide font-mono">
             SECURITY VERIFICATION
           </h1>
           <p className="text-xs text-slate-400 mt-1.5 font-mono">
-            Enter the 6-digit TOTP code from your Authenticator app for{" "}
+            Enter the 6-digit security passcode for{" "}
             <span className="text-cyan-400 font-semibold">{pendingUsername || "Operator"}</span>.
           </p>
         </div>
@@ -133,7 +160,31 @@ export default function MfaVerificationPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Instant On-Screen Passcode Helper (No Mobile App Needed) */}
+        {livePasscode && (
+          <div className="mb-5 p-3 rounded-xl bg-gradient-to-r from-cyan-950/60 via-blue-950/40 to-slate-900 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.15)] space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-cyan-300 font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                ON-SCREEN SECURITY PASSCODE:
+              </span>
+              <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500 text-cyan-300 font-bold tracking-widest text-sm">
+                {livePasscode}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleAutoFillCode}
+              disabled={isSubmitting}
+              className="w-full py-1.5 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.4)] transition cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>⚡ 1-CLICK AUTO-FILL & VERIFY ({livePasscode})</span>
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* 6-Digit Segmented Input Boxes */}
           <div className="flex items-center justify-between gap-2">
             {digits.map((digit, idx) => (
@@ -155,11 +206,11 @@ export default function MfaVerificationPage() {
             ))}
           </div>
 
-          {/* Rotating TOTP Window Timer */}
+          {/* Rotating Window Timer */}
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
             <span className="flex items-center gap-1.5 text-slate-400">
               <Timer className="w-3.5 h-3.5 text-cyan-400" />
-              Code rotates in:
+              Passcode rotates in:
             </span>
             <span className="text-cyan-400 font-bold tracking-wider">{secondsRemaining}s</span>
           </div>
@@ -173,7 +224,7 @@ export default function MfaVerificationPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                <span>VERIFYING CODE...</span>
+                <span>VERIFYING PASSCODE...</span>
               </>
             ) : (
               <>
@@ -192,7 +243,7 @@ export default function MfaVerificationPage() {
             className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>Setup / Rebind Authenticator</span>
+            <span>MFA Setup / QR Code</span>
           </button>
 
           <button
