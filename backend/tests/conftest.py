@@ -29,7 +29,7 @@ from app.models.audit_log import AuditLog  # noqa: F401
 test_engine = create_engine(
     "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
@@ -45,7 +45,7 @@ def override_get_db() -> Generator[Session, None, None]:
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_database() -> Generator[None, None, None]:
     Base.metadata.create_all(bind=test_engine)
-    
+
     # Seed users for testing each role
     db = TestingSessionLocal()
     users = [
@@ -56,7 +56,7 @@ def setup_test_database() -> Generator[None, None, None]:
             password_hash=security.hash_password("Admin@123"),
             role=UserRole.OPERATOR,
             is_active=True,
-            mfa_enabled=False
+            mfa_enabled=False,
         ),
         User(
             id="admin-uuid-001",
@@ -65,7 +65,7 @@ def setup_test_database() -> Generator[None, None, None]:
             password_hash=security.hash_password("AdminSecret123!"),
             role=UserRole.ADMINISTRATOR,
             is_active=True,
-            mfa_enabled=False
+            mfa_enabled=False,
         ),
         User(
             id="operator-uuid-001",
@@ -73,7 +73,7 @@ def setup_test_database() -> Generator[None, None, None]:
             email="operator@ibvap.test",
             password_hash=security.hash_password("OperatorSecret123!"),
             role=UserRole.OPERATOR,
-            is_active=True
+            is_active=True,
         ),
         User(
             id="analyst-uuid-001",
@@ -81,7 +81,7 @@ def setup_test_database() -> Generator[None, None, None]:
             email="analyst@ibvap.test",
             password_hash=security.hash_password("AnalystSecret123!"),
             role=UserRole.ANALYST,
-            is_active=True
+            is_active=True,
         ),
         User(
             id="auditor-uuid-001",
@@ -89,7 +89,7 @@ def setup_test_database() -> Generator[None, None, None]:
             email="auditor@ibvap.test",
             password_hash=security.hash_password("AuditorSecret123!"),
             role=UserRole.AUDITOR,
-            is_active=True
+            is_active=True,
         ),
         User(
             id="inactive-uuid-001",
@@ -97,8 +97,8 @@ def setup_test_database() -> Generator[None, None, None]:
             email="inactive@ibvap.test",
             password_hash=security.hash_password("InactiveSecret123!"),
             role=UserRole.OPERATOR,
-            is_active=False
-        )
+            is_active=False,
+        ),
     ]
     for u in users:
         db.add(u)
@@ -121,9 +121,19 @@ def unauthenticated_client() -> Generator[TestClient, None, None]:
 @pytest.fixture(scope="module")
 def admin_client(unauthenticated_client: TestClient) -> TestClient:
     """Authenticated TestClient as ADMINISTRATOR."""
-    token = security.create_access_token({"sub": "admin-uuid-001", "username": "admin_user", "role": "ADMINISTRATOR"})
-    unauthenticated_client.headers["Authorization"] = f"Bearer {token}"
-    return unauthenticated_client
+    client = TestClient(app)
+    app.dependency_overrides[get_db] = override_get_db
+    token = security.create_access_token({
+        "sub": "admin-uuid-001",
+        "username": "admin_user",
+        "role": "ADMINISTRATOR",
+        "scope": "fully_authenticated",
+        "password_verified": True,
+        "face_verified": True,
+        "mfa_verified": True,
+    })
+    client.headers["Authorization"] = f"Bearer {token}"
+    return client
 
 
 @pytest.fixture(scope="module")
@@ -131,7 +141,15 @@ def operator_client(unauthenticated_client: TestClient) -> TestClient:
     """Authenticated TestClient as OPERATOR."""
     client = TestClient(app)
     app.dependency_overrides[get_db] = override_get_db
-    token = security.create_access_token({"sub": "operator-uuid-001", "username": "operator_user", "role": "OPERATOR"})
+    token = security.create_access_token({
+        "sub": "operator-uuid-001",
+        "username": "operator_user",
+        "role": "OPERATOR",
+        "scope": "fully_authenticated",
+        "password_verified": True,
+        "face_verified": True,
+        "mfa_verified": True,
+    })
     client.headers["Authorization"] = f"Bearer {token}"
     return client
 
@@ -141,7 +159,15 @@ def analyst_client(unauthenticated_client: TestClient) -> TestClient:
     """Authenticated TestClient as ANALYST."""
     client = TestClient(app)
     app.dependency_overrides[get_db] = override_get_db
-    token = security.create_access_token({"sub": "analyst-uuid-001", "username": "analyst_user", "role": "ANALYST"})
+    token = security.create_access_token({
+        "sub": "analyst-uuid-001",
+        "username": "analyst_user",
+        "role": "ANALYST",
+        "scope": "fully_authenticated",
+        "password_verified": True,
+        "face_verified": True,
+        "mfa_verified": True,
+    })
     client.headers["Authorization"] = f"Bearer {token}"
     return client
 
@@ -151,7 +177,15 @@ def auditor_client(unauthenticated_client: TestClient) -> TestClient:
     """Authenticated TestClient as AUDITOR."""
     client = TestClient(app)
     app.dependency_overrides[get_db] = override_get_db
-    token = security.create_access_token({"sub": "auditor-uuid-001", "username": "auditor_user", "role": "AUDITOR"})
+    token = security.create_access_token({
+        "sub": "auditor-uuid-001",
+        "username": "auditor_user",
+        "role": "AUDITOR",
+        "scope": "fully_authenticated",
+        "password_verified": True,
+        "face_verified": True,
+        "mfa_verified": True,
+    })
     client.headers["Authorization"] = f"Bearer {token}"
     return client
 
@@ -175,7 +209,7 @@ def db_session() -> Generator[Session, None, None]:
         "sqlite:///:memory:",
         echo=False,
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -26,4 +26,10 @@ export const eventService = {
       return filtered;
     }
   },
+
+  async clearEvents(): Promise<{ message: string; cleared_count: number }> {
+    return await fetchApi<{ message: string; cleared_count: number }>("/events", {
+      method: "DELETE",
+    });
+  },
 };

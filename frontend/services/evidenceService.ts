@@ -103,7 +103,7 @@ export const evidenceService = {
   async getAllEvidence(): Promise<EvidenceRecord[]> {
     try {
       const data = await fetchApi<any[]>("/evidence");
-      if (data && Array.isArray(data) && data.length > 0) {
+      if (data && Array.isArray(data)) {
         return data.map((e) => ({
           evidence_id: e.id || e.evidence_identifier,
           event_id: e.event_id,
@@ -116,8 +116,14 @@ export const evidenceService = {
         }));
       }
     } catch (err) {
-      console.warn("[evidenceService] Failed to load backend evidence, using demo mock:", err);
+      console.warn("[evidenceService] Failed to load backend evidence:", err);
     }
-    return Object.values(MOCK_EVIDENCE);
+    return [];
+  },
+
+  async clearEvidenceVault(): Promise<{ message: string; cleared_count: number }> {
+    return await fetchApi<{ message: string; cleared_count: number }>("/evidence", {
+      method: "DELETE",
+    });
   },
 };

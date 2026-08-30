@@ -58,7 +58,22 @@ def test_audit_logs_administrative_and_operational_actions(admin_client: TestCli
     assert "ALERT_ACKNOWLEDGED" in actions
 
 
-def test_audit_logs_deletion_not_allowed(admin_client: TestClient) -> None:
-    """Test DELETE /api/v1/audit-logs is blocked (405 Method Not Allowed)."""
-    response = admin_client.delete("/api/v1/audit-logs")
-    assert response.status_code == 405
+def test_clear_audit_logs_rbac_and_execution(admin_client: TestClient, operator_client: TestClient, unauthenticated_client: TestClient) -> None:
+    """Test clearing audit logs: authorized for Admin, forbidden for Operator/Unauthenticated."""
+    # 1. Unauthenticated request is rejected
+    unauth_resp = unauthenticated_client.delete("/api/v1/audit-logs")
+    assert unauth_resp.status_code == 401
+
+    # 2. Operator is forbidden
+    op_resp = operator_client.delete("/api/v1/audit-logs")
+    assert op_resp.status_code == 403
+
+    # 3. Admin can clear audit logs
+    admin_resp = admin_client.delete("/api/v1/audit-logs")
+    assert admin_resp.status_code == 200
+    assert admin_resp.json()["message"] == "Audit logs cleared successfully"
+
+    # 4. Querying audit logs returns empty list
+    logs_resp = admin_client.get("/api/v1/audit-logs")
+    assert logs_resp.status_code == 200
+    assert len(logs_resp.json()) == 0

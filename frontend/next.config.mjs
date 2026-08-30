@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Prevents duplicate canvas mounts and double WS connects in dev
+  reactStrictMode: false,
+  poweredByHeader: false,
   images: {
     unoptimized: true,
   },

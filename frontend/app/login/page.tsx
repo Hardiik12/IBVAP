@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, User, Eye, EyeOff, AlertTriangle, Radio, Cpu, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import { Shield, Lock, User, Eye, EyeOff, AlertTriangle, Radio, Cpu, CheckCircle2, ChevronRight, Loader2, Scan } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
@@ -16,12 +16,10 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated or in later stage, route accordingly
   useEffect(() => {
     if (authState === "AUTHENTICATED") {
       router.replace("/dashboard");
-    } else if (authState === "MFA_PENDING") {
-      router.replace("/mfa");
     }
   }, [authState, router]);
 
@@ -36,14 +34,9 @@ export default function LoginPage() {
     setErrorMessage(null);
 
     try {
-      const res = await login(username.trim(), password);
-      if (res.mfa_setup_required) {
-        router.push("/mfa/setup");
-      } else {
-        router.push("/mfa");
-      }
+      await login(username.trim(), password);
     } catch (err: any) {
-      setErrorMessage(err.message || "ACCESS DENIED: Invalid operator credentials.");
+      setErrorMessage(err.response?.data?.error?.message || err.message || "ACCESS DENIED: Invalid operator credentials.");
     } finally {
       setIsSubmitting(false);
     }
@@ -61,7 +54,6 @@ export default function LoginPage() {
         
         {/* Left Telemetry HUD Panel (5 cols) */}
         <div className="md:col-span-5 bg-gradient-to-br from-[#0c1427] via-[#09101f] to-[#060b16] p-8 border-b md:border-b-0 md:border-r border-slate-800/80 flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle Radar Sweep Effect */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
 
           <div>
@@ -81,7 +73,7 @@ export default function LoginPage() {
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed mb-6 font-mono">
-              Intelligent Border & Vehicle Analytics Platform. High-security tactical access node.
+              Intelligent Border & Vehicle Analytics Platform. Multi-Tier Biometric Defense Access Node.
             </p>
 
             {/* Tactical Telemetry Badges */}
@@ -96,18 +88,18 @@ export default function LoginPage() {
 
               <div className="flex items-center justify-between text-xs px-3 py-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 font-mono">
                 <span className="flex items-center gap-2">
-                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                  YOLOv8 AI ENGINE
+                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                  MFA TOTP TOKEN
                 </span>
-                <span className="text-cyan-400 font-semibold">ONLINE</span>
+                <span className="text-blue-400 font-semibold">RFC-6238</span>
               </div>
 
               <div className="flex items-center justify-between text-xs px-3 py-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 font-mono">
                 <span className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
-                  MFA SECURITY
+                  <Scan className="w-3.5 h-3.5 text-cyan-400" />
+                  FACIAL BIOMETRICS
                 </span>
-                <span className="text-blue-400 font-semibold">ENFORCED</span>
+                <span className="text-cyan-400 font-semibold">1:1 SFace</span>
               </div>
             </div>
           </div>
@@ -129,13 +121,13 @@ export default function LoginPage() {
           <div className="mb-6">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-mono mb-3">
               <Lock className="w-3 h-3" />
-              <span>STEP 1 OF 2 : OPERATOR VERIFICATION</span>
+              <span>STEP 1 OF 3 : OPERATOR CREDENTIALS</span>
             </div>
             <h2 className="text-2xl font-bold text-white tracking-wide font-mono">
               SECURE OPERATOR ACCESS
             </h2>
             <p className="text-xs text-slate-400 mt-1 font-mono">
-              Enter authorized tactical credentials to initiate multi-factor session.
+              Enter authorized credentials to initiate authentication pipeline.
             </p>
           </div>
 
@@ -201,7 +193,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me Checkbox */}
+            {/* Maintain Session Checkbox */}
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 text-xs font-mono text-slate-400 cursor-pointer hover:text-slate-300">
                 <input
@@ -210,11 +202,11 @@ export default function LoginPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-3.5 h-3.5 rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0 focus:ring-offset-slate-900"
                 />
-                <span>Maintain session terminal</span>
+                <span>Maintain terminal state</span>
               </label>
 
               <span className="text-[11px] font-mono text-cyan-400/80 hover:underline cursor-pointer">
-                Protocol: RFC-6238
+                Defense Auth Tier 3
               </span>
             </div>
 

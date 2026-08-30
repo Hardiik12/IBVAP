@@ -83,3 +83,41 @@ class EvidenceService:
         db.commit()
         db.refresh(evidence)
         return evidence
+
+    @staticmethod
+    def clear_all_evidence(db: Session, user_id: str | None = None) -> int:
+        """
+        Permanently clear all evidence records and remove their physical image files from disk.
+        Logs an atomic audit action for the clearance.
+        """
+        records = db.query(Evidence).all()
+        count = len(records)
+
+        # 1. Safely remove physical snapshot files from disk
+        from app.services.evidence_integrity_service import EvidenceIntegrityService
+        for ev in records:
+            if ev.file_path:
+                try:
+                    target_path = EvidenceIntegrityService.resolve_path_safely(ev.file_path)
+                    if target_path.exists() and target_path.is_file():
+                        target_path.unlink()
+                except Exception as file_err:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Failed to delete evidence file {ev.file_path}: {file_err}")
+
+        # 2. Delete database records
+        db.query(Evidence).delete(synchronize_session=False)
+        db.commit()
+
+        # 3. Record Audit Log
+        if user_id:
+            from app.services.audit_service import AuditService
+            AuditService.log_action(
+                db=db,
+                user_id=user_id,
+                action="EVIDENCE_VAULT_CLEARED",
+                resource_type="EVIDENCE",
+                metadata={"cleared_count": count},
+            )
+
+        return count

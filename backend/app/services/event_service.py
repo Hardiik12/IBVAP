@@ -150,3 +150,21 @@ class EventService:
         db.commit()
         db.refresh(event)
         return event
+
+    @staticmethod
+    def clear_events(db: Session, user_id: Optional[str] = None) -> int:
+        """
+        Permanently clear all forensic events from the database (Administrator only).
+        """
+        count = db.query(Event).delete(synchronize_session=False)
+        db.commit()
+        if user_id:
+            from app.services.audit_service import AuditService
+            AuditService.log_action(
+                db=db,
+                user_id=user_id,
+                action="EVENTS_CLEARED",
+                resource_type="EVENT",
+                metadata={"cleared_count": count},
+            )
+        return count

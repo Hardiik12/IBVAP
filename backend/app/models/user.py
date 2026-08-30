@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import String, Boolean, DateTime, Integer, Enum as SQLEnum
+from sqlalchemy import String, Boolean, DateTime, Integer, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.enums import UserRole
@@ -22,11 +22,16 @@ class User(Base):
         SQLEnum(UserRole), nullable=False, default=UserRole.OPERATOR
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
+
     # Multi-Factor Authentication (MFA / TOTP)
     mfa_secret: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    
+
+    # Biometric Facial Reference Profile (128-d L2-normalized float embedding vector JSON string)
+    face_embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    face_enrolled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    face_enrolled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Account Security & Rate Limiting
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -46,4 +51,4 @@ class User(Base):
     audit_logs: Mapped[List["AuditLog"]] = relationship("AuditLog", back_populates="user")
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} username={self.username} role={self.role} mfa_enabled={self.mfa_enabled}>"
+        return f"<User id={self.id} username={self.username} role={self.role} face_enrolled={self.face_enrolled} mfa_enabled={self.mfa_enabled}>"

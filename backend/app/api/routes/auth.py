@@ -5,6 +5,10 @@ from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    FaceVerificationRequest,
+    FaceVerificationResponse,
+    FaceEnrollmentRequest,
+    FaceEnrollmentResponse,
     MfaSetupResponse,
     MfaEnableRequest,
     MfaVerifyRequest,
@@ -25,7 +29,7 @@ def login(
 ):
     """
     Step 1: Authenticate operator credentials (Operator ID/Email + Password).
-    Returns temporary MFA challenge token requiring Step 2 verification.
+    Returns temporary challenge token (scope='password_verified') requiring Step 2 Face Verification.
     """
     return AuthService.authenticate_credentials(
         db=db,
@@ -34,13 +38,45 @@ def login(
     )
 
 
-@router.get("/mfa/setup", response_model=MfaSetupResponse)
-def get_mfa_setup(
-    mfa_token: str = Query(..., description="Temporary MFA challenge token from Step 1"),
+@router.post("/face/verify", response_model=FaceVerificationResponse)
+def verify_face(
+    payload: FaceVerificationRequest,
     db: Session = Depends(get_db),
 ):
     """
-    Step 2 Setup: Generates TOTP secret, provisioning URI, and QR Code base64 image.
+    Step 2: 1:1 Facial Biometric Verification.
+    Verifies live webcam frame against the operator's enrolled facial reference profile.
+    Upgrades challenge token to scope='face_verified' requiring Step 3 TOTP MFA.
+    """
+    return AuthService.verify_face_biometrics(
+        db=db,
+        temp_token=payload.temp_token,
+        image_base64=payload.image,
+    )
+
+
+@router.post("/face/enroll", response_model=FaceEnrollmentResponse)
+def enroll_face(
+    payload: FaceEnrollmentRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Biometric Enrollment: Captures multiple facial samples to build and persist reference profile.
+    """
+    return AuthService.enroll_face_biometrics(
+        db=db,
+        temp_token=payload.temp_token,
+        images=payload.images,
+    )
+
+
+@router.get("/mfa/setup", response_model=MfaSetupResponse)
+def get_mfa_setup(
+    mfa_token: str = Query(..., description="Temporary challenge token from Step 2"),
+    db: Session = Depends(get_db),
+):
+    """
+    Step 3 Setup: Generates TOTP secret, provisioning URI, and QR Code base64 image.
     """
     return AuthService.get_mfa_setup_payload(db=db, mfa_token=mfa_token)
 
@@ -51,7 +87,7 @@ def enable_mfa(
     db: Session = Depends(get_db),
 ):
     """
-    Step 2 Activation: Verifies initial 6-digit TOTP code, activates MFA on account, and issues full session JWT.
+    Step 3 Activation: Verifies initial 6-digit TOTP code, activates MFA, and issues full session JWT.
     """
     return AuthService.enable_mfa_and_issue_session(
         db=db,
@@ -67,7 +103,7 @@ def verify_mfa(
     db: Session = Depends(get_db),
 ):
     """
-    Step 2 Verification: Cryptographically verifies 6-digit TOTP code from Authenticator app and issues full session JWT.
+    Step 3 Verification: Cryptographically verifies rotating 6-digit TOTP code and issues full session JWT.
     """
     return AuthService.verify_mfa_and_issue_session(
         db=db,
@@ -81,7 +117,7 @@ def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Retrieve profile and operational role details of the current authenticated operator.
+    Retrieve profile, biometric enrollment status, and operational role of authenticated operator.
     """
     return current_user
 

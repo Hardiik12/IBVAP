@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ChevronDown,
   Lock,
+  Scan,
 } from "lucide-react";
 import { Button } from "../ui/Button";
 
@@ -94,6 +95,14 @@ export const Header: React.FC<HeaderProps> = ({ onTriggerTestAlert }) => {
         </div>
 
         <span className="text-slate-600">|</span>
+
+        {/* Biometric Verified HUD Badge */}
+        <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-[10px] text-emerald-300 font-bold tracking-wider">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>🔒 BIOMETRIC VERIFIED</span>
+        </div>
+
+        <span className="text-slate-600 hidden lg:inline">|</span>
 
         <div className="text-slate-300 text-[11px]">
           UTC: <strong className="text-emerald-400" suppressHydrationWarning>{time}</strong>
@@ -189,6 +198,13 @@ export const Header: React.FC<HeaderProps> = ({ onTriggerTestAlert }) => {
                   <span className="text-cyan-400 font-bold">{role}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">
+                  <span>Biometric Profile:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <Scan className="w-3 h-3 text-emerald-400" />
+                    VERIFIED (1:1)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-400">
                   <span>MFA Protection:</span>
                   <span className="text-emerald-400 font-bold flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3" />
@@ -199,6 +215,18 @@ export const Header: React.FC<HeaderProps> = ({ onTriggerTestAlert }) => {
 
               {/* Actions */}
               <div className="space-y-1 border-t border-slate-800 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    router.push("/admin/face-enrollment");
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded hover:bg-slate-800/60 text-slate-300 hover:text-white flex items-center gap-2 text-[11px] transition-colors cursor-pointer text-left"
+                >
+                  <Scan className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Update Biometric Profile</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {

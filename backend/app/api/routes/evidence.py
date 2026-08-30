@@ -231,6 +231,21 @@ def list_all_evidence(
     return [map_evidence_to_response(e) for e in records]
 
 
+@router.delete("/evidence", status_code=status.HTTP_200_OK)
+def clear_evidence_vault(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(manage_evidence_role),
+):
+    """
+    Permanently clear all evidence vault records and physical snapshot files (Operator/Administrator).
+    """
+    cleared_count = EvidenceService.clear_all_evidence(db=db, user_id=current_user.id)
+    return {
+        "message": "EVIDENCE VAULT CLEARED SUCCESSFULLY",
+        "cleared_count": cleared_count
+    }
+
+
 @router.get("/evidence/{evidence_id}", response_model=EvidenceResponse)
 def get_evidence(
     evidence_id: str,

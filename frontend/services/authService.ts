@@ -1,7 +1,19 @@
-import { LoginResponse, MfaSetupResponse, TokenResponse, User } from "@/types/auth";
+import { apiClient } from "./apiClient";
+import {
+  LoginResponse,
+  FaceVerificationResponse,
+  FaceEnrollmentResponse,
+  MfaSetupResponse,
+  MfaVerifyResponse,
+  TokenResponse,
+  CurrentUser,
+} from "@/types/auth";
 
 const TOKEN_KEY = "ibvap_access_token";
-const MFA_PENDING_KEY = "ibvap_mfa_pending";
+const TEMP_TOKEN_KEY = "ibvap_temp_token";
+const MFA_TOKEN_KEY = "ibvap_mfa_token";
+const FACE_TOKEN_KEY = "ibvap_face_token";
+const USER_KEY = "ibvap_current_user";
 
 export const authService = {
   getStoredToken(): string | null {
@@ -9,135 +21,167 @@ export const authService = {
     return localStorage.getItem(TOKEN_KEY);
   },
 
-  setStoredToken(token: string): void {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(TOKEN_KEY, token);
-  },
-
-  removeStoredToken(): void {
-    if (typeof window === "undefined") return;
-    localStorage.removeItem(TOKEN_KEY);
-  },
-
-  getStoredMfaPending(): { mfaToken: string; mfaSetupRequired: boolean; username: string } | null {
+  getStoredTempToken(): string | null {
     if (typeof window === "undefined") return null;
-    const raw = sessionStorage.getItem(MFA_PENDING_KEY);
-    if (!raw) return null;
+    return sessionStorage.getItem(TEMP_TOKEN_KEY);
+  },
+
+  getStoredMfaToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(MFA_TOKEN_KEY) || sessionStorage.getItem(TEMP_TOKEN_KEY);
+  },
+
+  getStoredFaceToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(FACE_TOKEN_KEY) || sessionStorage.getItem(MFA_TOKEN_KEY) || sessionStorage.getItem(TEMP_TOKEN_KEY);
+  },
+
+  setStoredTokens(tokens: { accessToken?: string; tempToken?: string; mfaToken?: string; faceToken?: string }) {
+    if (typeof window === "undefined") return;
+    if (tokens.accessToken) localStorage.setItem(TOKEN_KEY, tokens.accessToken);
+    if (tokens.tempToken) sessionStorage.setItem(TEMP_TOKEN_KEY, tokens.tempToken);
+    if (tokens.mfaToken) sessionStorage.setItem(MFA_TOKEN_KEY, tokens.mfaToken);
+    if (tokens.faceToken) sessionStorage.setItem(FACE_TOKEN_KEY, tokens.faceToken);
+  },
+
+  getStoredUser(): CurrentUser | null {
+    if (typeof window === "undefined") return null;
+    const data = localStorage.getItem(USER_KEY);
+    if (!data) return null;
     try {
-      return JSON.parse(raw);
+      return JSON.parse(data);
     } catch {
       return null;
     }
   },
 
-  setStoredMfaPending(data: { mfaToken: string; mfaSetupRequired: boolean; username: string }): void {
+  setStoredUser(user: CurrentUser) {
     if (typeof window === "undefined") return;
-    sessionStorage.setItem(MFA_PENDING_KEY, JSON.stringify(data));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
-  clearStoredMfaPending(): void {
+  clearAllAuth() {
     if (typeof window === "undefined") return;
-    sessionStorage.removeItem(MFA_PENDING_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TEMP_TOKEN_KEY);
+    sessionStorage.removeItem(MFA_TOKEN_KEY);
+    sessionStorage.removeItem(FACE_TOKEN_KEY);
   },
 
-  async login(usernameOrEmail: string, password: string): Promise<LoginResponse> {
-    const res = await fetch("/api/v1/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username_or_email: usernameOrEmail, password }),
+  // Step 1: Password Login
+  async login(username_or_email: string, password: string): Promise<LoginResponse> {
+    const response = await apiClient.post<LoginResponse>("/auth/login", {
+      username_or_email,
+      password,
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const message = err?.detail || err?.error?.message || "ACCESS DENIED: Invalid operator credentials.";
-      throw new Error(message);
-    }
-
-    const data: LoginResponse = await res.json();
-    this.setStoredMfaPending({
-      mfaToken: data.mfa_token,
-      mfaSetupRequired: data.mfa_setup_required,
-      username: data.username,
+    this.setStoredTokens({
+      tempToken: response.data.temp_token,
+      mfaToken: response.data.temp_token,
     });
-    return data;
+    return response.data;
   },
 
-  async getMfaSetup(mfaToken: string): Promise<MfaSetupResponse> {
-    const res = await fetch(`/api/v1/auth/mfa/setup?mfa_token=${encodeURIComponent(mfaToken)}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.detail || err?.error?.message || "Failed to load MFA setup QR code.");
-    }
-    return res.json();
-  },
-
-  async enableMfa(mfaToken: string, secret: string, code: string): Promise<TokenResponse> {
-    const res = await fetch("/api/v1/auth/mfa/enable", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mfa_token: mfaToken, secret, code }),
+  // Step 2: MFA Setup (Get TOTP Secret & QR Code)
+  async getMfaSetup(mfa_token: string): Promise<MfaSetupResponse> {
+    const response = await apiClient.get<MfaSetupResponse>("/auth/mfa/setup", {
+      params: { mfa_token },
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.detail || err?.error?.message || "Invalid 6-digit code. Please verify and try again.");
-    }
-
-    const data: TokenResponse = await res.json();
-    this.setStoredToken(data.access_token);
-    this.clearStoredMfaPending();
-    return data;
+    return response.data;
   },
 
-  async verifyMfa(mfaToken: string, code: string): Promise<TokenResponse> {
-    const res = await fetch("/api/v1/auth/mfa/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mfa_token: mfaToken, code }),
+  // Step 2: MFA Activation (Initial Code)
+  async enableMfa(mfa_token: string, secret: string, code: string): Promise<MfaVerifyResponse> {
+    const response = await apiClient.post<MfaVerifyResponse>("/auth/mfa/enable", {
+      mfa_token,
+      secret,
+      code,
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.detail || err?.error?.message || "MFA VERIFICATION FAILED: Code is invalid or expired.");
+    const faceToken = response.data.face_token || response.data.access_token;
+    if (faceToken) {
+      this.setStoredTokens({ faceToken });
     }
-
-    const data: TokenResponse = await res.json();
-    this.setStoredToken(data.access_token);
-    this.clearStoredMfaPending();
-    return data;
+    if (response.data.user) {
+      this.setStoredUser(response.data.user);
+    }
+    return response.data;
   },
 
-  async getCurrentUser(): Promise<User> {
-    const token = this.getStoredToken();
-    if (!token) {
-      throw new Error("No authentication token found.");
-    }
-
-    const res = await fetch("/api/v1/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
+  // Step 2: MFA Verification (Rotating 6-Digit Code)
+  async verifyMfa(mfa_token: string, code: string): Promise<MfaVerifyResponse> {
+    const response = await apiClient.post<MfaVerifyResponse>("/auth/mfa/verify", {
+      mfa_token,
+      code,
     });
-
-    if (!res.ok) {
-      this.removeStoredToken();
-      throw new Error("Session expired or invalid.");
+    const faceToken = response.data.face_token || response.data.access_token;
+    if (faceToken) {
+      this.setStoredTokens({ faceToken });
     }
-
-    return res.json();
+    if (response.data.user) {
+      this.setStoredUser(response.data.user);
+    }
+    return response.data;
   },
 
-  async logout(): Promise<void> {
-    const token = this.getStoredToken();
-    if (token) {
-      try {
-        await fetch("/api/v1/auth/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (err) {
-        console.warn("Logout request failed:", err);
+  // Step 3: Face Biometric Verification (Webcam Frame)
+  async verifyFace(
+    temp_token: string,
+    image: string,
+    liveness_completed: boolean = true
+  ): Promise<FaceVerificationResponse> {
+    const response = await apiClient.post<FaceVerificationResponse>("/auth/face/verify", {
+      temp_token,
+      image,
+      liveness_completed,
+    });
+    if (response.data.access_token) {
+      this.setStoredTokens({ accessToken: response.data.access_token });
+      if (response.data.user) {
+        this.setStoredUser(response.data.user);
       }
+      sessionStorage.removeItem(TEMP_TOKEN_KEY);
+      sessionStorage.removeItem(MFA_TOKEN_KEY);
+      sessionStorage.removeItem(FACE_TOKEN_KEY);
     }
-    this.removeStoredToken();
-    this.clearStoredMfaPending();
+    return response.data;
+  },
+
+  // Biometric Face Enrollment
+  async enrollFace(
+    temp_token: string,
+    images: string[]
+  ): Promise<FaceEnrollmentResponse> {
+    const response = await apiClient.post<FaceEnrollmentResponse>("/auth/face/enroll", {
+      temp_token,
+      images,
+    });
+    if (response.data.access_token) {
+      this.setStoredTokens({ accessToken: response.data.access_token });
+      if (response.data.user) {
+        this.setStoredUser(response.data.user);
+      }
+      sessionStorage.removeItem(TEMP_TOKEN_KEY);
+      sessionStorage.removeItem(MFA_TOKEN_KEY);
+      sessionStorage.removeItem(FACE_TOKEN_KEY);
+    }
+    return response.data;
+  },
+
+  // Current Operator Profile
+  async getMe(): Promise<CurrentUser> {
+    const response = await apiClient.get<CurrentUser>("/auth/me");
+    this.setStoredUser(response.data);
+    return response.data;
+  },
+
+  // Session Termination
+  async logout(): Promise<void> {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch {
+      // Ignore network errors on logout
+    } finally {
+      this.clearAllAuth();
+    }
   },
 };

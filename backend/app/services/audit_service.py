@@ -57,3 +57,12 @@ class AuditService:
             query = query.filter(AuditLog.timestamp <= end_time)
 
         return query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit).all()
+
+    @staticmethod
+    def clear_audit_logs(db: Session, user_id: Optional[str] = None) -> int:
+        """
+        Permanently clear all audit log entries from the database (Administrator only).
+        """
+        count = db.query(AuditLog).delete(synchronize_session=False)
+        db.commit()
+        return count

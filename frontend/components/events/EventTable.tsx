@@ -63,7 +63,21 @@ export const EventTable: React.FC<EventTableProps> = ({ events, cameras }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border/60 text-slate-300">
-              {filteredEvents.length === 0 ? (
+              {events.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-16 text-slate-400 font-mono">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-surface-100 border border-surface-border flex items-center justify-center text-slate-500">
+                        <FileSearch className="w-5 h-5 text-slate-500" />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-300">No audit logs available</p>
+                      <p className="text-xs text-slate-500 font-sans">
+                        New system security events and boundary crossing logs will appear here in real-time.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-10 text-slate-500 font-mono">
                     No security events found matching criteria.

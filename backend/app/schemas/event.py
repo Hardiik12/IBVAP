@@ -22,42 +22,34 @@ class EventBase(BaseModel):
     timestamp: datetime = Field(...)
     severity: EventSeverity = Field(default=EventSeverity.HIGH)
     status: EventStatus = Field(default=EventStatus.NEW)
-    bounding_box: Optional[Dict[str, Any]] = None
-    position: Optional[Dict[str, Any]] = None
+    bounding_box: Optional[Any] = None
+    position: Optional[Any] = None
     event_metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata")
 
     @field_serializer("timestamp")
     def serialize_timestamp(self, dt: datetime, _info) -> str:
         return format_utc_iso(dt)
 
-    @field_validator("bounding_box")
+    @field_validator("bounding_box", mode="before")
     @classmethod
-    def validate_bounding_box(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def validate_bounding_box(cls, v: Optional[Any]) -> Optional[Any]:
         if v is None:
             return v
-        if not isinstance(v, dict):
-            raise ValueError("Bounding box must be a JSON dictionary object")
-        required_keys = {"x1", "y1", "x2", "y2"}
-        if not required_keys.issubset(v.keys()):
-            raise ValueError("Bounding box must contain keys: x1, y1, x2, y2")
-        for key in required_keys:
-            if not isinstance(v[key], (int, float)):
-                raise ValueError(f"Bounding box coordinate '{key}' must be a numeric value")
+        if isinstance(v, (list, tuple)) and len(v) == 4:
+            return {"x1": float(v[0]), "y1": float(v[1]), "x2": float(v[2]), "y2": float(v[3])}
+        if isinstance(v, dict):
+            return v
         return v
 
-    @field_validator("position")
+    @field_validator("position", mode="before")
     @classmethod
-    def validate_position(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def validate_position(cls, v: Optional[Any]) -> Optional[Any]:
         if v is None:
             return v
-        if not isinstance(v, dict):
-            raise ValueError("Position must be a JSON dictionary object")
-        required_keys = {"x", "y"}
-        if not required_keys.issubset(v.keys()):
-            raise ValueError("Position must contain keys: x, y")
-        for key in required_keys:
-            if not isinstance(v[key], (int, float)):
-                raise ValueError(f"Position coordinate '{key}' must be a numeric value")
+        if isinstance(v, (list, tuple)) and len(v) >= 2:
+            return {"x": float(v[0]), "y": float(v[1])}
+        if isinstance(v, dict):
+            return v
         return v
 
     class Config:

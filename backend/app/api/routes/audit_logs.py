@@ -54,3 +54,16 @@ def list_audit_logs(
         offset=offset
     )
     return [map_audit_log_to_response(l) for l in logs]
+
+
+@router.delete("", status_code=200)
+def clear_audit_logs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.ADMINISTRATOR]))
+):
+    """
+    Permanently clear all audit log entries (Administrator only).
+    """
+    cleared_count = AuditService.clear_audit_logs(db=db, user_id=current_user.id)
+    return {"message": "Audit logs cleared successfully", "cleared_count": cleared_count}
+

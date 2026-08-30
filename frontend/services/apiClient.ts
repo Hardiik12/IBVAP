@@ -55,7 +55,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestOptions = {}
         errorData = { detail: response.statusText };
       }
       throw new ApiError(
-        errorData?.detail?.message || errorData?.detail || `API Error: ${response.status}`,
+        errorData?.error?.message || errorData?.detail?.message || errorData?.detail || `API Error: ${response.status}`,
         response.status,
         errorData
       );
@@ -67,3 +67,42 @@ export async function fetchApi<T>(endpoint: string, options: RequestOptions = {}
     throw error;
   }
 }
+
+export const apiClient = {
+  get: async <T>(endpoint: string, config?: { params?: Record<string, any> }): Promise<{ data: T }> => {
+    let finalUrl = endpoint;
+    if (config?.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(config.params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          searchParams.append(key, String(val));
+        }
+      });
+      const qs = searchParams.toString();
+      if (qs) finalUrl += (finalUrl.includes("?") ? "&" : "?") + qs;
+    }
+    const data = await fetchApi<T>(finalUrl, { method: "GET" });
+    return { data };
+  },
+
+  post: async <T>(endpoint: string, body?: any): Promise<{ data: T }> => {
+    const data = await fetchApi<T>(endpoint, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  },
+
+  patch: async <T>(endpoint: string, body?: any): Promise<{ data: T }> => {
+    const data = await fetchApi<T>(endpoint, {
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  },
+
+  delete: async <T>(endpoint: string): Promise<{ data: T }> => {
+    const data = await fetchApi<T>(endpoint, { method: "DELETE" });
+    return { data };
+  },
+};

@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert, Copy, Check, QrCode, ArrowLeft, Loader2, KeyRound } from "lucide-react";
+import { ShieldAlert, Copy, Check, QrCode, ArrowLeft, Loader2, KeyRound, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { authService } from "@/services/authService";
 import { MfaSetupResponse } from "@/types/auth";
 
 export default function MfaSetupPage() {
   const router = useRouter();
-  const { mfaData, enableMfa, authState } = useAuth();
+  const { mfaToken, enableMfa, authState } = useAuth();
 
   const [setupData, setSetupData] = useState<MfaSetupResponse | null>(null);
   const [isLoadingSetup, setIsLoadingSetup] = useState(true);
@@ -19,19 +19,11 @@ export default function MfaSetupPage() {
   const [isCopied, setIsCopied] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // If already authenticated, redirect to dashboard
-  useEffect(() => {
-    if (authState === "AUTHENTICATED") {
-      router.replace("/dashboard");
-    } else if (authState === "UNAUTHENTICATED") {
-      router.replace("/login");
-    }
-  }, [authState, router]);
-
   // Fetch QR Code and Secret
   useEffect(() => {
     async function loadSetup() {
-      if (!mfaData?.mfaToken) {
+      const activeToken = mfaToken || authService.getStoredMfaToken();
+      if (!activeToken) {
         setErrorMessage("MFA session missing or expired. Please return to login.");
         setIsLoadingSetup(false);
         return;
@@ -39,17 +31,17 @@ export default function MfaSetupPage() {
 
       try {
         setIsLoadingSetup(true);
-        const data = await authService.getMfaSetup(mfaData.mfaToken);
+        const data = await authService.getMfaSetup(activeToken);
         setSetupData(data);
       } catch (err: any) {
-        setErrorMessage(err.message || "Failed to initialize MFA setup.");
+        setErrorMessage(err.response?.data?.error?.message || err.message || "Failed to initialize MFA setup.");
       } finally {
         setIsLoadingSetup(false);
       }
     }
 
     loadSetup();
-  }, [mfaData]);
+  }, [mfaToken]);
 
   const handleCopySecret = () => {
     if (!setupData?.secret) return;
@@ -106,9 +98,8 @@ export default function MfaSetupPage() {
 
     try {
       await enableMfa(secret, code);
-      router.replace("/dashboard");
     } catch (err: any) {
-      setErrorMessage(err.message || "Invalid 6-digit confirmation code. Please verify your authenticator app.");
+      setErrorMessage(err.response?.data?.error?.message || err.message || "Invalid 6-digit confirmation code. Please verify your authenticator app.");
       setDigits(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
@@ -150,7 +141,7 @@ export default function MfaSetupPage() {
 
           <div className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono flex items-center gap-1.5">
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>MFA SETUP REQUIRED</span>
+            <span>STEP 2 OF 3 : MFA SETUP</span>
           </div>
         </div>
 
@@ -265,7 +256,10 @@ export default function MfaSetupPage() {
                       <span>ACTIVATING MFA...</span>
                     </>
                   ) : (
-                    <span>ACTIVATE MFA & ENTER DASHBOARD</span>
+                    <>
+                      <span>ACTIVATE MFA & PROCEED TO BIOMETRIC SCAN</span>
+                      <ChevronRight className="w-3.5 h-3.5 font-black" />
+                    </>
                   )}
                 </button>
               </form>

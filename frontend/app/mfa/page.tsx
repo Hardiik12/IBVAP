@@ -2,27 +2,18 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, KeyRound, AlertTriangle, ArrowLeft, Loader2, QrCode, Timer } from "lucide-react";
+import { ShieldCheck, KeyRound, AlertTriangle, ArrowLeft, Loader2, QrCode, Timer, ChevronRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function MfaVerificationPage() {
   const router = useRouter();
-  const { mfaData, verifyMfa, authState } = useAuth();
+  const { pendingUsername, verifyMfa, authState } = useAuth();
 
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // If already authenticated, go to dashboard
-  useEffect(() => {
-    if (authState === "AUTHENTICATED") {
-      router.replace("/dashboard");
-    } else if (authState === "UNAUTHENTICATED") {
-      router.replace("/login");
-    }
-  }, [authState, router]);
 
   // Focus the first input box on load
   useEffect(() => {
@@ -65,7 +56,6 @@ export default function MfaVerificationPage() {
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace" && !digits[index] && index > 0) {
-      // Focus previous input on backspace if current is empty
       inputRefs.current[index - 1]?.focus();
     }
   };
@@ -92,10 +82,8 @@ export default function MfaVerificationPage() {
 
     try {
       await verifyMfa(codeToSubmit);
-      router.replace("/dashboard");
     } catch (err: any) {
-      setErrorMessage(err.message || "MFA VERIFICATION FAILED: Code is invalid or expired.");
-      // Clear inputs for re-entry
+      setErrorMessage(err.response?.data?.error?.message || err.message || "MFA VERIFICATION FAILED: Code is invalid or expired.");
       setDigits(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
@@ -125,7 +113,7 @@ export default function MfaVerificationPage() {
 
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[11px] font-mono mb-2">
             <KeyRound className="w-3 h-3" />
-            <span>STEP 2 OF 2 : MFA CHALLENGE</span>
+            <span>STEP 2 OF 3 : MFA TOTP CHALLENGE</span>
           </div>
 
           <h1 className="text-xl font-bold text-white tracking-wide font-mono">
@@ -133,7 +121,7 @@ export default function MfaVerificationPage() {
           </h1>
           <p className="text-xs text-slate-400 mt-1.5 font-mono">
             Enter the 6-digit TOTP code from your Authenticator app for{" "}
-            <span className="text-cyan-400 font-semibold">{mfaData?.username || "Operator"}</span>.
+            <span className="text-cyan-400 font-semibold">{pendingUsername || "Operator"}</span>.
           </p>
         </div>
 
@@ -185,10 +173,13 @@ export default function MfaVerificationPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                <span>AUTHORIZING ACCESS...</span>
+                <span>VERIFYING CODE...</span>
               </>
             ) : (
-              <span>CONFIRM & ENTER DASHBOARD</span>
+              <>
+                <span>PROCEED TO BIOMETRIC VERIFICATION</span>
+                <ChevronRight className="w-4 h-4 font-black" />
+              </>
             )}
           </button>
         </form>

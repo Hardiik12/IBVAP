@@ -226,9 +226,24 @@ def test_update_event_immutable_fields_api(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_delete_event_not_allowed_api(client: TestClient) -> None:
+def test_delete_single_event_not_allowed_api(client: TestClient) -> None:
     """
-    Test 18: Confirm DELETE is not implemented (405 Method Not Allowed).
+    Test 18: Confirm DELETE on single event item is not allowed (405 Method Not Allowed).
     """
     response = client.delete("/api/v1/events/some-event-uuid")
     assert response.status_code == 405
+
+
+def test_clear_all_events_bulk_api(client: TestClient) -> None:
+    """
+    Test 19: Confirm Admin can clear all events in bulk and table becomes empty.
+    """
+    del_resp = client.delete("/api/v1/events")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["message"] == "Audit logs cleared successfully"
+
+    # Verify events list is now empty
+    list_resp = client.get("/api/v1/events")
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 0
+

@@ -214,3 +214,21 @@ def test_event_evidence_lifecycle_integration_api(client: TestClient) -> None:
     assert get_evi.status_code == 200
     assert get_evi.json()["evidence_identifier"] == "EVD-INT-99"
     assert get_evi.json()["event_id"] == event_id
+
+
+def test_clear_evidence_vault_bulk_api(client: TestClient, unauthenticated_client: TestClient) -> None:
+    """Test DELETE /api/v1/evidence clears all evidence vault records and enforces RBAC."""
+    # 1. Unauthenticated request is rejected
+    unauth_resp = unauthenticated_client.delete("/api/v1/evidence")
+    assert unauth_resp.status_code == 401
+
+    # 2. Authenticated operator/admin clears evidence
+    del_resp = client.delete("/api/v1/evidence")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["message"] == "EVIDENCE VAULT CLEARED SUCCESSFULLY"
+
+    # 3. Querying all evidence returns empty list
+    list_resp = client.get("/api/v1/evidence")
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 0
+

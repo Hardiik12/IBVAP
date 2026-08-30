@@ -4,7 +4,6 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core import security
-from app.core.config import settings
 from app.models.user import User
 from app.models.enums import UserRole
 
@@ -18,16 +17,16 @@ def get_current_user(
 ) -> User:
     """
     Decodes Bearer JWT access token and retrieves active authenticated user.
-    Strictly verifies that MFA verification has been completed (scope != 'mfa_pending').
+    Strictly verifies that the full authentication pipeline has been completed (scope == 'fully_authenticated').
     """
     if token:
         payload = security.decode_access_token(token)
         if payload and "sub" in payload:
-            # Check scope — reject temporary Step 1 MFA challenge tokens
-            if payload.get("scope") == "mfa_pending":
+            # Check scope — reject any partial stage tokens (password_verified, face_verified, mfa_pending)
+            if payload.get("scope") != "fully_authenticated":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="MFA verification required before accessing this resource.",
+                    detail="Full biometric and MFA authentication required before accessing this resource.",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 

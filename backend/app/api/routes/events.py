@@ -18,6 +18,14 @@ manage_events_role = require_role([UserRole.OPERATOR, UserRole.ADMINISTRATOR])
 
 def map_event_to_response(event) -> EventResponse:
     """Helper to inject computed alert_id into EventResponse."""
+    bbox = event.bounding_box
+    if isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+        bbox = {"x1": float(bbox[0]), "y1": float(bbox[1]), "x2": float(bbox[2]), "y2": float(bbox[3])}
+
+    pos = event.position
+    if isinstance(pos, (list, tuple)) and len(pos) >= 2:
+        pos = {"x": float(pos[0]), "y": float(pos[1])}
+
     return EventResponse(
         id=event.id,
         event_identifier=event.event_identifier,
@@ -28,8 +36,8 @@ def map_event_to_response(event) -> EventResponse:
         timestamp=event.timestamp,
         severity=event.severity,
         status=event.status,
-        bounding_box=event.bounding_box,
-        position=event.position,
+        bounding_box=bbox,
+        position=pos,
         metadata=event.event_metadata,
         created_at=event.created_at,
         alert_id=event.alert.id if event.alert else None
@@ -107,3 +115,16 @@ def update_event(
     """
     event = EventService.update_event(db, event_id, event_in)
     return map_event_to_response(event)
+
+
+@router.delete("", status_code=status.HTTP_200_OK)
+def clear_events(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.ADMINISTRATOR]))
+):
+    """
+    Clear all event audit logs (Administrator only).
+    """
+    cleared_count = EventService.clear_events(db, user_id=current_user.id)
+    return {"message": "Audit logs cleared successfully", "cleared_count": cleared_count}
+
