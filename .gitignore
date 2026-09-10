@@ -1,3 +1,7 @@
+# ==============================================================================
+# IBVAP — Git Ignore Rules
+# ==============================================================================
+
 # Python
 .venv/
 venv/
@@ -8,6 +12,7 @@ __pycache__/
 *.so
 .pytest_cache/
 .coverage
+htmlcov/
 
 # Node.js & Frontend
 node_modules/
@@ -54,9 +59,11 @@ ai/models/*.engine
 *.swp
 *.swo
 
-# System Files
+# System & OS Files
 .DS_Store
+**/.DS_Store
 Thumbs.db
+~$*
 
 # Logs & Temp
 *.log
@@ -64,4 +71,3 @@ logs/
 *.tmp
 tmp/
 *.db
-

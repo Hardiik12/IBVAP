@@ -78,6 +78,6 @@ This guide equips every team presenter with their core domain mastery, important
 
 ## 7. Product & Presentation Lead
 - **Core Mastery:** Strategic narrative, problem-solution alignment, timekeeping (7–10m presentation, 5m demo), judge defense coordination, and impact articulation.
-- **Important Files:** [`SIH_PRESENTATION.md`](file:///Users/hardik/Downloads/IBVAP/SIH_PRESENTATION.md), [`SIH_FINAL_PRESENTATION.pptx`](file:///Users/hardik/Downloads/IBVAP/SIH_FINAL_PRESENTATION.pptx), [`SIH_FINAL_DEMO_RUNBOOK.md`](file:///Users/hardik/Downloads/IBVAP/SIH_FINAL_DEMO_RUNBOOK.md), [`SIH_JUDGE_QA.md`](file:///Users/hardik/Downloads/IBVAP/SIH_JUDGE_QA.md).
+- **Important Files:** [`SIH_PRESENTATION.md`](../presentation/SIH_PRESENTATION.md), [`SIH_FINAL_PRESENTATION.pptx`](../presentation/SIH_FINAL_PRESENTATION.pptx), [`SIH_FINAL_DEMO_RUNBOOK.md`](../demo/SIH_FINAL_DEMO_RUNBOOK.md), [`SIH_JUDGE_QA.md`](../judge-qa/SIH_JUDGE_QA.md).
 - **Core Concepts:** Clear problem framing, crisp technical storytelling, seamless transitions between slides and live code.
 - **20-Second Pitch:** "I orchestrate our presentation: framing the critical national security problem, showcasing our 18-slide tactical deck, and demonstrating our working platform to prove mission readiness."

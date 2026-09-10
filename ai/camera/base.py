@@ -30,6 +30,13 @@ class CameraSource(ABC):
         """
         ...
 
+    def read(self) -> tuple[bool, np.ndarray | None]:
+        """
+        Read the next video frame.
+        Alias for read_frame() for BaseCameraSource / OpenCV compatibility.
+        """
+        return self.read_frame()
+
     @abstractmethod
     def is_opened(self) -> bool:
         """Check if the video capture device or file is open."""
