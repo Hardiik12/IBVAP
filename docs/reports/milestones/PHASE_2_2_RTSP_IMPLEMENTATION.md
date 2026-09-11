@@ -27,7 +27,7 @@ Phase 2.2 implements production-oriented **RTSP IP Camera Ingestion** for IBVAP 
 | **RTSP Source Implementation** | VERIFIED | [`ai/camera/rtsp.py`](file:///Users/hardik/Downloads/IBVAP/ai/camera/rtsp.py) |
 | **Camera Abstraction Compatibility** | VERIFIED | Inherits `CameraSource` and `BaseCameraSource` |
 | **Background Acquisition** | VERIFIED | Dedicated daemon worker thread `_capture_loop` |
-| **Latest-Frame Buffering** | VERIFIED | Single-slot atomic latest frame buffer |
+| **Latest-Frame Buffering** | VERIFIED | Thread-safe single-slot latest frame buffer |
 | **Stale Frame Detection** | VERIFIED | Watchdog timer (configurable, default 3.0s) |
 | **Exponential Backoff Reconnect** | VERIFIED | Initial 1s, max 30s ceiling with jitter |
 | **Credential Redaction** | VERIFIED | `sanitize_rtsp_url()` masks `://user:pass@host` |

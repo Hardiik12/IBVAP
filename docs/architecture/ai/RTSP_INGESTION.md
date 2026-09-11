@@ -11,7 +11,7 @@ Phase 2.2 introduces production-oriented **Real-Time Streaming Protocol (RTSP) I
 │  [Background Grabber Thread]                            │
 │     │ (cv2.VideoCapture)                                │
 │     ▼                                                   │
-│  [Single-Slot Atomic Frame Buffer]                      │
+│  [Thread-Safe Single-Slot Frame Buffer]                │
 │     │ (Latest BGR uint8 np.ndarray)                     │
 │     ▼                                                   │
 │  [Stale Frame Watchdog & Bounded Exponential Backoff]   │
@@ -28,7 +28,7 @@ Phase 2.2 introduces production-oriented **Real-Time Streaming Protocol (RTSP) I
 1. **Non-Blocking Inference:**
    The OpenCV frame grabber executes inside a dedicated background worker thread (`_capture_loop`), preventing the main AI inference loop from blocking on socket read operations.
 2. **Latest Frame Priority:**
-   The stream buffer stores strictly a single atomic frame slot (`_latest_frame`). Older unconsumed frames are discarded, maintaining sub-10ms latency for real-time surveillance.
+   Latest-frame buffering prevents unbounded frame accumulation and prioritizes the newest available frame, reducing queue-induced latency.
 3. **Stale Stream Watchdog:**
    Monitors inter-frame arrival timestamps (`stale_frame_timeout=3.0s`). If no fresh frames arrive within the threshold, state transitions to `STALE` and reconnect flow triggers.
 4. **Bounded Exponential Backoff:**

@@ -30,8 +30,8 @@ def sanitize_rtsp_url(url: Optional[str]) -> str:
     """
     if not url:
         return ""
-    # Redact password embedded in protocol://username:password@host
-    return re.sub(r"://([^:]+):([^@]+)@", r"://:***@", str(url))
+    # Redact password embedded in protocol://username:password@host while preserving username
+    return re.sub(r"://([^:\s]+):([^@\s]+)@", r"://\1:***@", str(url))
 
 
 class CameraState(str, Enum):
@@ -52,7 +52,7 @@ class RTSPCameraSource(CameraSource, BaseCameraSource):
     
     Key Engineering Principles:
     1. Zero Inference Blocking: Frame grabbing executes in a dedicated background worker thread.
-    2. Latest Frame Priority: Overwrites a single atomic slot; unconsumed old frames are dropped.
+    2. Latest Frame Priority: Retains a thread-safe single-slot latest-frame buffer; unconsumed old frames are dropped.
     3. Stale Frame Watchdog: Detects stream freezes and transitions state to STALE/RECONNECTING.
     4. Bounded Exponential Backoff: Automatically reconnects on network dropouts with jitter.
     5. Credential Sanitization: Raw passwords never leak into logs, exceptions, or status dictionaries.
@@ -99,7 +99,7 @@ class RTSPCameraSource(CameraSource, BaseCameraSource):
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
 
-        # Frame Buffer (Single-Slot Atomic Latest Frame)
+        # Frame Buffer (Thread-Safe Single-Slot Latest Frame)
         self._latest_frame: Optional[np.ndarray] = None
         self._last_frame_timestamp: float = 0.0
 
@@ -253,6 +253,7 @@ class RTSPCameraSource(CameraSource, BaseCameraSource):
                     self._last_frame_timestamp = now
                     self._total_frames_received += 1
                     self._state = CameraState.STREAMING
+                time.sleep(0.001)
 
             except Exception as e:
                 logger.error(f"Error reading frame from RTSP stream [{self.camera_id}]: {e}")
